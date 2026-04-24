@@ -7,12 +7,29 @@ import numpy as np
 import pytest
 
 from riskparity._core import (
-    CCDSolver, 
+    CCDSolver,
+    SCASolver,
     _validate_covariance,
+    _validate_max_iter,
+    _validate_tol,
     risk_contributions,
     relative_risk_contributions,
     risk_contribution_gap,
 )
+
+
+def _random_spd_matrix(rng: np.random.Generator, n: int) -> np.ndarray:
+    """Draw a symmetric positive definite matrix (well conditioned)."""
+    a = rng.standard_normal((n, n))
+    q, _ = np.linalg.qr(a)
+    d = 0.5 + rng.random(n)
+    return q @ np.diag(d) @ q.T
+
+
+def _equicorrelation_covariance(n: int, rho: float, vol: np.ndarray) -> np.ndarray:
+    """Constant-correlation covariance with per-asset volatilities on the diagonal."""
+    c = (1.0 - rho) * np.eye(n) + rho * np.ones((n, n))
+    return np.outer(vol, vol) * c
 
 # Covariance validation tests
 def test_validate_covariance_accepts_valid_matrix():
@@ -41,6 +58,24 @@ def test_validate_covariance_rejects_nonfinite_entries():
     Sigma = np.array([[1.0, np.nan], [np.nan, 1.0]])
     with pytest.raises(ValueError):
         _validate_covariance(Sigma)
+
+
+def test_validate_covariance_rejects_infinite_entries():
+    Sigma = np.array([[1.0, np.inf], [np.inf, 1.0]])
+    with pytest.raises(ValueError):
+        _validate_covariance(Sigma)
+
+
+def test_validate_tol_rejects_nonpositive():
+    with pytest.raises(ValueError):
+        _validate_tol(0.0)
+    with pytest.raises(ValueError):
+        _validate_tol(-1e-6)
+
+
+def test_validate_max_iter_rejects_nonpositive():
+    with pytest.raises(ValueError):
+        _validate_max_iter(0)
 
 # CCD solver basic correctness tests
 def test_ccd_returns_valid_weights():
@@ -116,3 +151,88 @@ def test_ccd_risk_contribution_gap_is_small():
     w = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
     gap = risk_contribution_gap(Sigma, w)
     assert gap < 1e-6
+
+
+def test_risk_contributions_rejects_weight_length_mismatch():
+    Sigma = np.eye(3)
+    w = np.array([0.5, 0.5])
+    with pytest.raises(ValueError):
+        risk_contributions(Sigma, w)
+
+
+# Scale and numerical-stability checks (larger n, stiff correlations)
+def test_ccd_large_random_spd_portfolio():
+    rng = np.random.default_rng(0)
+    n = 64
+    Sigma = _random_spd_matrix(rng, n)
+    solver = CCDSolver(Sigma, tol=1e-9, max_iter=5000)
+    w = solver.solve()
+    assert w.shape == (n,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-9)
+    assert np.all(w > 0.0)
+    assert solver.converged_ is True
+    gap = risk_contribution_gap(Sigma, w)
+    assert gap < 1e-5
+
+
+def test_ccd_highly_correlated_equicorrelation():
+    n = 40
+    rho = 0.92
+    vol = np.sqrt(np.linspace(0.01, 0.05, n))
+    Sigma = _equicorrelation_covariance(n, rho, vol)
+    w = CCDSolver(Sigma, tol=1e-9, max_iter=8000).solve()
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-9)
+    rc = risk_contributions(Sigma, w)
+    assert np.allclose(rc, np.full(n, rc.mean()), rtol=0, atol=5e-5)
+
+
+def test_ccd_near_singular_low_rank_plus_jitter():
+    rng = np.random.default_rng(1)
+    n = 35
+    rank = 4
+    b = rng.standard_normal((n, rank))
+    Sigma = b @ b.T + 1e-5 * np.eye(n)
+    Sigma = 0.5 * (Sigma + Sigma.T)
+    w = CCDSolver(Sigma, tol=1e-9, max_iter=10000).solve()
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-8)
+    gap = risk_contribution_gap(Sigma, w)
+    assert gap < 1e-4
+
+
+# Constrained solver (integration-style checks against the public API)
+def test_sca_returns_feasible_weights():
+    Sigma = np.array(
+        [
+            [0.04, 0.01, 0.00],
+            [0.01, 0.09, 0.02],
+            [0.00, 0.02, 0.16],
+        ]
+    )
+    w = SCASolver(Sigma, w_max=0.5, tol=1e-8, max_iter=500).solve()
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w >= -1e-10)
+    assert np.all(w <= 0.5 + 1e-8)
+
+
+def test_sca_tight_cap_still_satisfies_simplex_and_bounds():
+    Sigma = np.diag([0.04, 0.09, 0.16])
+    w = SCASolver(Sigma, w_max=1.0 / 3.0 + 1e-12, tol=1e-8, max_iter=500).solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w <= 1.0 / 3.0 + 1e-7)
+
+
+def test_sca_rejects_infeasible_w_max():
+    Sigma = np.eye(5)
+    with pytest.raises(ValueError):
+        SCASolver(Sigma, w_max=0.15)
+
+
+def test_sca_matches_ccd_when_w_max_is_non_binding():
+    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    w_ccd = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
+    w_sca = SCASolver(Sigma, w_max=1.0, tol=1e-10, max_iter=500).solve()
+    assert np.allclose(w_sca, w_ccd, atol=1e-4)
