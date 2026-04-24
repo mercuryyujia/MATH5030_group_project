@@ -24,3 +24,13 @@ def test_validate_covariance_rejects_non_symmetric_matrix():
     Sigma = np.array([[1.0, 0.2], [0.1, 1.0]])
     with pytest.raises(ValueError):
         _validate_covariance(Sigma)
+
+def test_validate_covariance_rejects_nonpositive_diagonal():
+    Sigma = np.array([[0.0, 0.0], [0.0, 1.0]])
+    with pytest.raises(ValueError):
+        _validate_covariance(Sigma)
+
+def test_validate_covariance_rejects_nonfinite_entries():
+    Sigma = np.array([[1.0, np.nan], [np.nan, 1.0]])
+    with pytest.raises(ValueError):
+        _validate_covariance(Sigma)
