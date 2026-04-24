@@ -1,6 +1,8 @@
 import sys
 import os
+
 sys.path.append(os.path.abspath("."))
+
 import numpy as np
 import pytest
 
@@ -12,9 +14,7 @@ from riskparity._core import (
     risk_contribution_gap,
 )
 
-def test_debug():
-    assert True
-
+# Covariance validation tests
 def test_validate_covariance_accepts_valid_matrix():
     Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
     out = _validate_covariance(Sigma)
@@ -31,6 +31,7 @@ def test_validate_covariance_rejects_non_symmetric_matrix():
     with pytest.raises(ValueError):
         _validate_covariance(Sigma)
 
+# Edge case tests for covariance validation
 def test_validate_covariance_rejects_nonpositive_diagonal():
     Sigma = np.array([[0.0, 0.0], [0.0, 1.0]])
     with pytest.raises(ValueError):
@@ -41,6 +42,7 @@ def test_validate_covariance_rejects_nonfinite_entries():
     with pytest.raises(ValueError):
         _validate_covariance(Sigma)
 
+# CCD solver basic correctness tests
 def test_ccd_returns_valid_weights():
     Sigma = np.array(
         [
@@ -55,6 +57,7 @@ def test_ccd_returns_valid_weights():
     assert np.isclose(w.sum(), 1.0, atol=1e-10)
     assert np.all(w > 0.0)
 
+# Analytical validation (diagonal covariance cases)
 def test_ccd_identity_covariance_gives_equal_weights():
     Sigma = np.eye(4)
     w = CCDSolver(Sigma).solve()
@@ -75,6 +78,7 @@ def test_ccd_two_asset_sanity_check_diagonal_case():
     expected = np.array([3.0, 2.0]) / 5.0
     assert np.allclose(w, expected, atol=1e-6)
 
+# Risk contribution validation tests
 def test_risk_contributions_sum_to_portfolio_variance():
     Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
     w = np.array([0.6, 0.4])
@@ -85,9 +89,7 @@ def test_risk_contributions_sum_to_portfolio_variance():
 def test_relative_risk_contributions_sum_to_one():
     Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
     w = np.array([0.6, 0.4])
-
     rrc = relative_risk_contributions(Sigma, w)
-
     assert np.isclose(rrc.sum(), 1.0)
     assert np.all(rrc >= 0.0)
 
