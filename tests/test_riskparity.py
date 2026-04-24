@@ -4,7 +4,13 @@ sys.path.append(os.path.abspath("."))
 import numpy as np
 import pytest
 
-from riskparity._core import CCDSolver, _validate_covariance
+from riskparity._core import (
+    CCDSolver, 
+    _validate_covariance,
+    risk_contributions,
+    relative_risk_contributions,
+    risk_contribution_gap,
+)
 
 def test_debug():
     assert True
@@ -48,3 +54,63 @@ def test_ccd_returns_valid_weights():
     assert np.all(np.isfinite(w))
     assert np.isclose(w.sum(), 1.0, atol=1e-10)
     assert np.all(w > 0.0)
+
+def test_ccd_identity_covariance_gives_equal_weights():
+    Sigma = np.eye(4)
+    w = CCDSolver(Sigma).solve()
+    expected = np.full(4, 0.25)
+    assert np.allclose(w, expected, atol=1e-6)
+
+def test_ccd_diagonal_covariance_matches_inverse_vol_weights():
+    variances = np.array([0.04, 0.09, 0.16, 0.25])
+    Sigma = np.diag(variances)
+    w = CCDSolver(Sigma).solve()
+    inv_vol = 1.0 / np.sqrt(variances)
+    expected = inv_vol / inv_vol.sum()
+    assert np.allclose(w, expected, atol=1e-6)
+
+def test_ccd_two_asset_sanity_check_diagonal_case():
+    Sigma = np.diag([0.04, 0.09])
+    w = CCDSolver(Sigma).solve()
+    expected = np.array([3.0, 2.0]) / 5.0
+    assert np.allclose(w, expected, atol=1e-6)
+
+def test_risk_contributions_sum_to_portfolio_variance():
+    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    w = np.array([0.6, 0.4])
+    rc = risk_contributions(Sigma, w)
+    portfolio_variance = w @ Sigma @ w
+    assert np.isclose(rc.sum(), portfolio_variance)
+
+def test_relative_risk_contributions_sum_to_one():
+    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    w = np.array([0.6, 0.4])
+
+    rrc = relative_risk_contributions(Sigma, w)
+
+    assert np.isclose(rrc.sum(), 1.0)
+    assert np.all(rrc >= 0.0)
+
+def test_ccd_risk_contributions_are_close_to_equal():
+    Sigma = np.array(
+        [
+            [0.04, 0.01, 0.00],
+            [0.01, 0.09, 0.02],
+            [0.00, 0.02, 0.16],
+        ]
+    )
+    w = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
+    rc = risk_contributions(Sigma, w)
+    assert np.allclose(rc, np.full(3, rc.mean()), atol=1e-6)
+
+def test_ccd_risk_contribution_gap_is_small():
+    Sigma = np.array(
+        [
+            [0.04, 0.01, 0.00],
+            [0.01, 0.09, 0.02],
+            [0.00, 0.02, 0.16],
+        ]
+    )
+    w = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
+    gap = risk_contribution_gap(Sigma, w)
+    assert gap < 1e-6
