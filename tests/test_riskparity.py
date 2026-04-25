@@ -407,6 +407,96 @@ def test_ccd_low_rank_spd_jitter_stable_across_dimensions(n, rank):
     assert solver.converged_ or gap < 1e-3
 
 
+# Robustness: boundary parameters (tol, max_iter, w_max feasibility margins)
+
+
+def test_ccd_max_iter_minimum_still_returns_valid_weights():
+    Sigma = np.eye(3)
+    solver = CCDSolver(Sigma, tol=1e-6, max_iter=1)
+    w = solver.solve()
+    assert w.shape == (3,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-12)
+    assert np.all(w > 0.0)
+
+
+def test_ccd_very_loose_tol_converges_immediately_on_small_problem():
+    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    solver = CCDSolver(Sigma, tol=0.2, max_iter=500)
+    w = solver.solve()
+    assert solver.converged_ is True
+    assert solver.n_iter_ is not None and solver.n_iter_ <= 3
+    assert np.isclose(w.sum(), 1.0, atol=1e-10)
+    assert np.all(w > 0.0)
+
+
+def test_ccd_extremely_tight_tol_small_system():
+    Sigma = np.diag([0.04, 0.09, 0.16])
+    solver = CCDSolver(Sigma, tol=1e-14, max_iter=20000)
+    w = solver.solve()
+    assert solver.converged_ is True
+    assert np.isclose(w.sum(), 1.0, atol=1e-12)
+    assert risk_contribution_gap(Sigma, w) < 1e-10
+
+
+def test_ccd_accepts_min_positive_tol_float():
+    Sigma = np.eye(2)
+    tol = np.finfo(float).tiny
+    w = CCDSolver(Sigma, tol=float(tol), max_iter=3000).solve()
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-10)
+
+
+@pytest.mark.parametrize("n", [3, 6, 10])
+def test_sca_w_max_just_feasible_above_inverse_n(n):
+    """Slightly above 1/n must be accepted; solution stays on simplex + box."""
+    w_max = (1.0 - 9e-13) / n + 2e-12
+    assert w_max <= 1.0
+    Sigma = np.eye(n)
+    w = SCASolver(Sigma, w_max=w_max, tol=1e-8, max_iter=600).solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-6)
+    assert np.all(w <= w_max + 1e-7)
+    assert np.all(w >= -1e-9)
+
+
+def test_sca_max_iter_one_returns_feasible_point():
+    Sigma = np.array(
+        [
+            [0.04, 0.01, 0.00],
+            [0.01, 0.09, 0.02],
+            [0.00, 0.02, 0.16],
+        ]
+    )
+    w = SCASolver(Sigma, w_max=0.5, tol=1e-6, max_iter=1).solve()
+    assert w.shape == (3,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-8)
+    assert np.all(w >= -1e-8)
+    assert np.all(w <= 0.5 + 1e-7)
+
+
+def test_sca_very_loose_tol_finishes_within_few_iterations():
+    Sigma = np.diag([0.04, 0.09, 0.16])
+    solver = SCASolver(Sigma, w_max=1.0, tol=0.05, max_iter=50)
+    w = solver.solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-6)
+    assert solver.n_iter_ is not None and solver.n_iter_ <= 10
+
+
+def test_sca_w_max_at_one_with_tiny_tol():
+    rng = np.random.default_rng(77)
+    Sigma = _random_spd_matrix(rng, 8)
+    w = SCASolver(Sigma, w_max=1.0, tol=1e-12, max_iter=3000).solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w <= 1.0 + 1e-8)
+
+
+def test_ccd_max_iter_large_does_not_break_small_identity():
+    Sigma = np.eye(4)
+    w = CCDSolver(Sigma, tol=1e-10, max_iter=50_000).solve()
+    assert np.allclose(w, 0.25, rtol=0.0, atol=1e-8)
+
+
 # Robustness: constrained solver — box & simplex constraints
 def test_sca_returns_feasible_weights():
     Sigma = np.array(
