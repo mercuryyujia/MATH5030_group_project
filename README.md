@@ -1,121 +1,186 @@
 # Risk Parity Portfolio Optimization with Weight Constraints
 
-Implements constrained risk parity portfolio optimization in Python, with two solvers: a fast CCD baseline and a constrained SCA solver supporting per-asset weight bounds.
+Python package for long-only risk parity portfolio construction with two solvers:
 
----
+- `CCDSolver` for the unconstrained baseline problem
+- `SCASolver` for risk parity with per-asset upper bounds
 
-## What problem it solves
+The project is designed as a compact, testable implementation for numerical finance coursework and lightweight experimentation.
 
-Modern portfolios require each asset to contribute equally to total risk — a property called *risk parity*. In practice, weights must also satisfy bounds like w_i ≤ 10%. This package implements both an unconstrained solver (CCD, Choi & Chen 2022) and a constrained solver (SCA, Feng & Palomar 2025), and benchmarks their computational efficiency across portfolio sizes.
+## Features
 
----
+- Unconstrained risk parity via cyclical coordinate descent (CCD)
+- Constrained risk parity via successive convex approximation (SCA)
+- Utility functions for absolute and relative risk contributions
+- NumPy-only core dependency
+- Pytest test suite and GitHub Actions CI
 
 ## Installation
+
+Install from PyPI:
 
 ```bash
 pip install risk-parity-constrained
 ```
 
-Or clone and install locally:
+Or install locally from source:
 
 ```bash
 git clone https://github.com/mercuryyujia/MATH5030_group_project.git
 cd MATH5030_group_project
 pip install -e .
 ```
-For tests:
+
+Install test dependencies:
 
 ```bash
-pip install -e .[test] 
-pytest
+pip install -e .[test]
 ```
----
 
-## Quick start
+Install notebook/demo dependencies:
+
+```bash
+pip install -e .[demo]
+```
+
+## Quick Start
 
 ```python
 import numpy as np
-from riskparity import CCDSolver, SCASolver, relative_risk_contributions
+from riskparity import (
+    CCDSolver,
+    SCASolver,
+    relative_risk_contributions,
+    risk_contribution_gap,
+)
 
-Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+Sigma = np.array([
+    [0.04, 0.01, 0.00],
+    [0.01, 0.09, 0.02],
+    [0.00, 0.02, 0.16],
+])
 
-w = CCDSolver(Sigma).solve()
-print(w)
-print(relative_risk_contributions(Sigma, w))
+w_ccd = CCDSolver(Sigma).solve()
+print("CCD weights:", w_ccd)
+print("CCD relative RC:", relative_risk_contributions(Sigma, w_ccd))
+print("CCD gap:", risk_contribution_gap(Sigma, w_ccd))
 
-w_constrained = SCASolver(Sigma, w_max=0.6).solve()
-print(w_constrained)
-print(relative_risk_contributions(Sigma, w_constrained))
+w_sca = SCASolver(Sigma, w_max=0.5).solve()
+print("SCA weights:", w_sca)
+print("SCA relative RC:", relative_risk_contributions(Sigma, w_sca))
+print("SCA gap:", risk_contribution_gap(Sigma, w_sca))
 ```
 
----
+## What the Solvers Do
 
-## API reference
+Risk parity aims to allocate weights so that each asset contributes equally to total portfolio risk. In practice, portfolio construction often requires additional constraints such as:
 
-### `CCDSolver(Sigma, tol=1e-8, max_iter=1000)`
+- long-only weights
+- weights summing to one
+- per-asset caps like `w_i <= 10%`
+
+This package provides:
+
+- `CCDSolver`: an unconstrained long-only baseline solver
+- `SCASolver`: a constrained solver with box constraints of the form `0 <= w_i <= w_max`
+
+## Public API
+
+### Solvers
+
+#### `CCDSolver(Sigma, tol=1e-8, max_iter=1000)`
+
+Computes an unconstrained long-only risk parity solution and normalizes weights to sum to 1.
+
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `Sigma` | `np.ndarray` (n×n) | Asset covariance matrix |
+| `Sigma` | `np.ndarray` | Symmetric covariance matrix of shape `(n, n)` |
 | `tol` | `float` | Convergence tolerance |
-| `max_iter` | `int` | Maximum iterations |
+| `max_iter` | `int` | Maximum CCD iterations |
 
-**`.solve()`** → `np.ndarray` (n,): portfolio weights summing to 1
+Key attributes after `.solve()`:
 
----
+- `n_iter_`
+- `converged_`
+- `objective_`
+- `risk_contribution_gap_`
 
-### `SCASolver(Sigma, w_max=1.0, tol=1e-6, max_iter=200)`
+#### `SCASolver(Sigma, w_max=1.0, tol=1e-6, max_iter=200)`
+
+Computes a constrained risk parity portfolio under:
+
+- `sum(w) = 1`
+- `0 <= w_i <= w_max`
+
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `Sigma` | `np.ndarray` (n×n) | Asset covariance matrix |
-| `w_max` | `float` | Per-asset weight upper bound |
+| `Sigma` | `np.ndarray` | Symmetric covariance matrix of shape `(n, n)` |
+| `w_max` | `float` | Per-asset upper bound in `(0, 1]` |
 | `tol` | `float` | Convergence tolerance |
 | `max_iter` | `int` | Maximum outer SCA iterations |
 
-**`.solve()`** → `np.ndarray` (n,): portfolio weights summing to 1
+Key attributes after `.solve()`:
 
----
+- `n_iter_`
+- `converged_`
+- `objective_`
+- `risk_contribution_gap_`
 
-## License
+### Utility Functions
 
-MIT
+#### `risk_contributions(Sigma, w)`
 
----
+Returns per-asset risk contributions:
 
-## Demo notebook
+```python
+w * (Sigma @ w)
+```
+
+#### `relative_risk_contributions(Sigma, w)`
+
+Normalizes risk contributions to sum to 1.
+
+#### `risk_contribution_gap(Sigma, w)`
+
+Returns the maximum absolute deviation from equal risk contributions.
+
+## Testing
+
+Run the test suite with:
+
+```bash
+pytest
+```
+
+CI currently tests Python `3.10`, `3.11`, and `3.12`.
+
+## Demo Notebook
+
+The repository includes a demonstration notebook in [`notebooks/demo.ipynb`](./notebooks/demo.ipynb).
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mercuryyujia/MATH5030_group_project/blob/main/notebooks/demo.ipynb)
 
+## Project Structure
 
-## Project structure
-```
+```text
 .
-├── LICENSE
-├── notebooks
+├── .github/workflows/
+│   ├── ci.yml
+│   └── publish.yml
+├── notebooks/
 │   ├── demo.html
 │   ├── demo.ipynb
 │   └── demo.pdf
-├── Numerical_Methods_Proposal.pdf
-├── Project Prototype _ MATHGR5030 [2026S] - NUMERICAL METHODS IN FINANCE.pdf
-├── Project Suggestion_ Risk Parity_ MATHGR5030 [2026S] - NUMERICAL METHODS IN FINANCE.pdf
-├── pyproject.toml
-├── README.md
-├── risk_parity_constrained.egg-info
-│   ├── dependency_links.txt
-│   ├── PKG-INFO
-│   ├── requires.txt
-│   ├── SOURCES.txt
-│   └── top_level.txt
-├── riskparity
+├── riskparity/
 │   ├── __init__.py
-│   ├── __pycache__
-│   │   ├── __init__.cpython-313.pyc
-│   │   └── _core.cpython-313.pyc
 │   └── _core.py
-└── tests
-    ├── __pycache__
-    │   ├── test_riskparity.cpython-313-pytest-8.4.2.pyc
-    │   └── test_riskparity.cpython-313-pytest-9.0.3.pyc
-    └── test_riskparity.py
-
-7 directories, 21 files
+├── tests/
+│   └── test_riskparity.py
+├── LICENSE
+├── pyproject.toml
+└── README.md
 ```
+
+## License
+
+MIT License. See [`LICENSE`](./LICENSE).
