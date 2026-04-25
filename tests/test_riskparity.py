@@ -21,7 +21,6 @@ from riskparity._core import (
 
 # Public API
 
-
 def test_public_api_imports():
     """Check that the main solvers are exposed through the package API."""
     import riskparity
@@ -44,7 +43,8 @@ def _equicorrelation_covariance(n: int, rho: float, vol: np.ndarray) -> np.ndarr
     return np.outer(vol, vol) * c
 
 
-# SPD fixtures reused across correctness + robustness tests.
+# Reusable SPD covariance matrices for tests
+
 COV_2 = np.array([[0.04, 0.01], [0.01, 0.09]])
 COV_3 = np.array(
     [
@@ -55,8 +55,7 @@ COV_3 = np.array(
 )
 
 
-# --- Covariance validation ---
-
+# Covariance validation
 
 def test_validate_covariance_accepts_valid_matrix():
     Sigma = COV_2.copy()
@@ -159,7 +158,8 @@ def test_validate_max_iter_rejects_nonpositive():
         _validate_max_iter(0)
 
 
-# --- CCDSolver (correctness) ---
+# CCDSolver (correctness)
+
 def test_ccd_sets_internal_attributes_after_solve():
     Sigma = np.eye(3)
     solver = CCDSolver(Sigma)
@@ -169,6 +169,7 @@ def test_ccd_sets_internal_attributes_after_solve():
     assert isinstance(solver.converged_, bool)
     assert solver.objective_ is not None
     assert solver.risk_contribution_gap_ is not None
+
 
 def test_ccd_returns_valid_weights():
     Sigma = COV_3.copy()
@@ -202,8 +203,7 @@ def test_ccd_two_asset_sanity_check_diagonal_case():
     assert np.allclose(w, expected, atol=1e-6)
 
 
-# --- Risk contributions ---
-
+# Risk contributions
 
 def test_risk_contributions_sum_to_portfolio_variance():
     Sigma = COV_2.copy()
@@ -244,8 +244,7 @@ def test_risk_contributions_rejects_weight_length_mismatch():
         risk_contributions(Sigma, w)
 
 
-# --- CCD stress (scale / conditioning) ---
-
+# CCD stress (scale / conditioning)
 
 def test_ccd_large_random_spd_portfolio():
     rng = np.random.default_rng(0)
@@ -288,7 +287,7 @@ def test_ccd_near_singular_low_rank_plus_jitter():
     assert gap < 1e-4
 
 
-# --- Robustness: random SPD (CCD + SCA) ---
+# Robustness: random SPD (CCD + SCA)
 @pytest.mark.parametrize(
     "seed,n",
     [
@@ -361,7 +360,8 @@ def test_ccd_vs_sca_random_spd_non_binding_w_max(seed):
     assert np.allclose(w_sca, w_ccd, atol=5e-3)
 
 
-# --- Robustness: cross-dimensional stability ---
+# Robustness: cross-dimensional stability
+
 @pytest.mark.parametrize("n", [2, 3, 6, 12, 24, 48, 72, 96])
 def test_ccd_identity_covariance_stable_across_dimensions(n):
     Sigma = np.eye(n)
@@ -438,8 +438,7 @@ def test_ccd_low_rank_spd_jitter_stable_across_dimensions(n, rank):
     assert solver.converged_ or gap < 1e-3
 
 
-# --- Robustness: boundary parameters (tol, max_iter, w_max) ---
-
+# Robustness: boundary parameters (tol, max_iter, w_max)
 
 def test_ccd_max_iter_minimum_still_returns_valid_weights():
     Sigma = np.eye(3)
@@ -522,7 +521,8 @@ def test_ccd_max_iter_large_does_not_break_small_identity():
     assert np.allclose(w, 0.25, rtol=0.0, atol=1e-8)
 
 
-# --- Robustness: SCA box + simplex constraints ---
+# Robustness: SCA box + simplex constraints
+
 def test_sca_returns_feasible_weights():
     Sigma = COV_3.copy()
     w = SCASolver(Sigma, w_max=0.5, tol=1e-8, max_iter=500).solve()
