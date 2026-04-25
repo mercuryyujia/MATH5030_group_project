@@ -257,7 +257,82 @@ def test_ccd_near_singular_low_rank_plus_jitter():
     assert gap < 1e-4
 
 
-# --- Robustness (Person 3): constrained solver — box & simplex constraints ---
+# Robustness: random SPD covariance (CCD + SCA)
+
+
+@pytest.mark.parametrize(
+    "seed,n",
+    [
+        (0, 18),
+        (1, 24),
+        (2, 30),
+        (3, 22),
+        (4, 36),
+        (5, 20),
+    ],
+)
+def test_ccd_random_spd_robust_across_seeds_and_sizes(seed, n):
+    rng = np.random.default_rng(seed)
+    Sigma = _random_spd_matrix(rng, n)
+    solver = CCDSolver(Sigma, tol=1e-8, max_iter=12000)
+    w = solver.solve()
+    assert w.shape == (n,)
+    assert w.dtype == np.float64
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-10)
+    assert np.all(w > 0.0)
+    assert solver.converged_ is True
+    gap = risk_contribution_gap(Sigma, w)
+    assert gap < 5e-5
+
+
+def test_ccd_random_spd_many_consecutive_draws_same_stream():
+    """Many independent SPD draws from one RNG stream (stability smoke)."""
+    rng = np.random.default_rng(2026)
+    n = 16
+    for _ in range(40):
+        Sigma = _random_spd_matrix(rng, n)
+        w = CCDSolver(Sigma, tol=1e-8, max_iter=8000).solve()
+        assert np.all(np.isfinite(w))
+        assert np.isclose(w.sum(), 1.0, atol=1e-9)
+        assert np.all(w > 0.0)
+        assert risk_contribution_gap(Sigma, w) < 1e-4
+
+
+@pytest.mark.parametrize(
+    "seed,n,w_max",
+    [
+        (10, 14, 0.5),
+        (11, 25, 0.55),
+        (12, 30, 0.6),
+        (13, 18, 1.0),
+        (14, 22, 0.48),
+    ],
+)
+def test_sca_random_spd_feasible_box_and_simplex(seed, n, w_max):
+    assert w_max * n >= 1.0 - 1e-12
+    rng = np.random.default_rng(seed)
+    Sigma = _random_spd_matrix(rng, n)
+    w = SCASolver(Sigma, w_max=w_max, tol=1e-7, max_iter=2000).solve()
+    assert w.shape == (n,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-6)
+    assert np.all(w >= -1e-8)
+    assert np.all(w <= w_max + 1e-7)
+
+
+@pytest.mark.parametrize("seed", [0, 3, 7, 11, 15])
+def test_ccd_vs_sca_random_spd_non_binding_w_max(seed):
+    """With w_max=1, SCA should stay close to CCD on generic SPD draws."""
+    rng = np.random.default_rng(5000 + seed)
+    n = 12
+    Sigma = _random_spd_matrix(rng, n)
+    w_ccd = CCDSolver(Sigma, tol=1e-9, max_iter=8000).solve()
+    w_sca = SCASolver(Sigma, w_max=1.0, tol=1e-8, max_iter=1200).solve()
+    assert np.allclose(w_sca, w_ccd, atol=5e-3)
+
+
+# Robustness: constrained solver — box & simplex constraints
 
 
 def test_sca_returns_feasible_weights():
