@@ -521,7 +521,7 @@ def test_ccd_max_iter_large_does_not_break_small_identity():
     assert np.allclose(w, 0.25, rtol=0.0, atol=1e-8)
 
 
-# Robustness: SCA box + simplex constraints
+# Robustness tests: SCA box + simplex constraints
 
 def test_sca_returns_feasible_weights():
     Sigma = COV_3.copy()
