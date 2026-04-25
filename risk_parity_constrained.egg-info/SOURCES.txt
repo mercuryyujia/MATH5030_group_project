@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+risk_parity_constrained.egg-info/PKG-INFO
+risk_parity_constrained.egg-info/SOURCES.txt
+risk_parity_constrained.egg-info/dependency_links.txt
+risk_parity_constrained.egg-info/requires.txt
+risk_parity_constrained.egg-info/top_level.txt
+riskparity/__init__.py
+riskparity/_core.py
+tests/test_riskparity.py

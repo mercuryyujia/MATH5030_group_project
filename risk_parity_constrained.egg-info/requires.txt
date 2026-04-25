@@ -1,0 +1,8 @@
+numpy>=1.24
+
+[demo]
+matplotlib>=3.8
+notebook>=7.0
+
+[test]
+pytest>=8.0
