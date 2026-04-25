@@ -31,38 +31,93 @@ def _equicorrelation_covariance(n: int, rho: float, vol: np.ndarray) -> np.ndarr
     c = (1.0 - rho) * np.eye(n) + rho * np.ones((n, n))
     return np.outer(vol, vol) * c
 
-# Covariance validation tests
+# Covariance validation tests (aligned with riskparity._core._validate_covariance)
 def test_validate_covariance_accepts_valid_matrix():
     Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
     out = _validate_covariance(Sigma)
     assert out.shape == (2, 2)
+    assert out.dtype == np.float64
     assert np.allclose(out, Sigma)
+    assert np.array_equal(out, Sigma.astype(float))
+
+
+def test_validate_covariance_accepts_integer_dtype():
+    Sigma = np.array([[4, 1], [1, 9]], dtype=np.int64)
+    out = _validate_covariance(Sigma)
+    assert out.dtype == np.float64
+    assert np.allclose(out, Sigma.astype(float))
+
 
 def test_validate_covariance_rejects_non_square_matrix():
     Sigma = np.ones((2, 3))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Sigma must be a square 2-D array\."):
         _validate_covariance(Sigma)
+
+
+def test_validate_covariance_rejects_one_dimensional():
+    Sigma = np.ones(3)
+    with pytest.raises(ValueError, match=r"Sigma must be a square 2-D array\."):
+        _validate_covariance(Sigma)
+
+
+def test_validate_covariance_rejects_three_dimensional():
+    Sigma = np.ones((2, 2, 2))
+    with pytest.raises(ValueError, match=r"Sigma must be a square 2-D array\."):
+        _validate_covariance(Sigma)
+
 
 def test_validate_covariance_rejects_non_symmetric_matrix():
     Sigma = np.array([[1.0, 0.2], [0.1, 1.0]])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Sigma must be symmetric\."):
         _validate_covariance(Sigma)
+
+
+def test_validate_covariance_accepts_near_symmetric_within_atol():
+    """np.allclose(Sigma, Sigma.T, atol=1e-10) should accept tiny off-diagonal asymmetry."""
+    Sigma = np.array([[1.0, 0.0], [1e-11, 1.0]])
+    out = _validate_covariance(Sigma)
+    assert out.shape == (2, 2)
+    assert np.allclose(out, out.T, atol=1e-10)
+
+
+def test_validate_covariance_rejects_asymmetric_beyond_atol():
+    Sigma = np.array([[1.0, 1e-9], [0.0, 1.0]])
+    with pytest.raises(ValueError, match=r"Sigma must be symmetric\."):
+        _validate_covariance(Sigma)
+
 
 # Edge case tests for covariance validation
 def test_validate_covariance_rejects_nonpositive_diagonal():
     Sigma = np.array([[0.0, 0.0], [0.0, 1.0]])
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"Sigma must have strictly positive diagonal entries\."
+    ):
         _validate_covariance(Sigma)
+
+
+def test_validate_covariance_rejects_negative_diagonal():
+    Sigma = np.array([[-0.01, 0.0], [0.0, 0.04]])
+    with pytest.raises(
+        ValueError, match=r"Sigma must have strictly positive diagonal entries\."
+    ):
+        _validate_covariance(Sigma)
+
 
 def test_validate_covariance_rejects_nonfinite_entries():
     Sigma = np.array([[1.0, np.nan], [np.nan, 1.0]])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Sigma must contain only finite values\."):
         _validate_covariance(Sigma)
 
 
 def test_validate_covariance_rejects_infinite_entries():
     Sigma = np.array([[1.0, np.inf], [np.inf, 1.0]])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Sigma must contain only finite values\."):
+        _validate_covariance(Sigma)
+
+
+def test_validate_covariance_rejects_neg_infinite_entries():
+    Sigma = np.array([[1.0, -np.inf], [-np.inf, 1.0]])
+    with pytest.raises(ValueError, match=r"Sigma must contain only finite values\."):
         _validate_covariance(Sigma)
 
 
