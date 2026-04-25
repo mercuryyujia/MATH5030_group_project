@@ -14,14 +14,13 @@ Modern portfolios require each asset to contribute equally to total risk — a p
 
 ```bash
 pip install risk-parity-constrained
-```
-
 Or clone and install locally:
 
 ```bash
 git clone https://github.com/mercuryyujia/MATH5030_group_project.git
 cd MATH5030_group_project
 pip install -e .
+pip install -e .[test]
 ```
 
 ---
@@ -30,7 +29,8 @@ pip install -e .
 
 ```python
 import numpy as np
-from riskparity import CCDSolver, SCASolver
+from riskparity import CCDSolver, SCASolver, relative_risk_contributions
+print(relative_risk_contributions(Sigma, w))
 
 Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
 
@@ -76,4 +76,4 @@ MIT
 
 ## Demo notebook
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR_USER/YOUR_REPO/blob/main/notebooks/demo.ipynb)
+[![Open In Colab](https://colab.research.google.com/github/mercuryyujia/MATH5030_group_project/blob/main/notebooks/demo.ipynb)
