@@ -1,5 +1,7 @@
-import sys
+"""Tests for ``riskparity._core``: validation, CCD/SCA solvers, and robustness."""
+
 import os
+import sys
 
 sys.path.append(os.path.abspath("."))
 
@@ -31,9 +33,23 @@ def _equicorrelation_covariance(n: int, rho: float, vol: np.ndarray) -> np.ndarr
     c = (1.0 - rho) * np.eye(n) + rho * np.ones((n, n))
     return np.outer(vol, vol) * c
 
-# Covariance validation tests (aligned with riskparity._core._validate_covariance)
+
+# SPD fixtures reused across correctness + robustness tests.
+COV_2 = np.array([[0.04, 0.01], [0.01, 0.09]])
+COV_3 = np.array(
+    [
+        [0.04, 0.01, 0.00],
+        [0.01, 0.09, 0.02],
+        [0.00, 0.02, 0.16],
+    ]
+)
+
+
+# --- Covariance validation ---
+
+
 def test_validate_covariance_accepts_valid_matrix():
-    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    Sigma = COV_2.copy()
     out = _validate_covariance(Sigma)
     assert out.shape == (2, 2)
     assert out.dtype == np.float64
@@ -86,7 +102,6 @@ def test_validate_covariance_rejects_asymmetric_beyond_atol():
         _validate_covariance(Sigma)
 
 
-# Edge case tests for covariance validation
 def test_validate_covariance_rejects_nonpositive_diagonal():
     Sigma = np.array([[0.0, 0.0], [0.0, 1.0]])
     with pytest.raises(
@@ -122,37 +137,36 @@ def test_validate_covariance_rejects_neg_infinite_entries():
 
 
 def test_validate_tol_rejects_nonpositive():
-    with pytest.raises(ValueError):
+    pat = r"tol must be a positive finite float\."
+    with pytest.raises(ValueError, match=pat):
         _validate_tol(0.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=pat):
         _validate_tol(-1e-6)
 
 
 def test_validate_max_iter_rejects_nonpositive():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"max_iter must be at least 1\."):
         _validate_max_iter(0)
 
-# CCD solver basic correctness tests
+
+# --- CCDSolver (correctness) ---
+
+
 def test_ccd_returns_valid_weights():
-    Sigma = np.array(
-        [
-            [0.04, 0.01, 0.00],
-            [0.01, 0.09, 0.02],
-            [0.00, 0.02, 0.16],
-        ]
-    )
+    Sigma = COV_3.copy()
     w = CCDSolver(Sigma).solve()
     assert w.shape == (3,)
     assert np.all(np.isfinite(w))
     assert np.isclose(w.sum(), 1.0, atol=1e-10)
     assert np.all(w > 0.0)
 
-# Analytical validation (diagonal covariance cases)
+
 def test_ccd_identity_covariance_gives_equal_weights():
     Sigma = np.eye(4)
     w = CCDSolver(Sigma).solve()
     expected = np.full(4, 0.25)
     assert np.allclose(w, expected, atol=1e-6)
+
 
 def test_ccd_diagonal_covariance_matches_inverse_vol_weights():
     variances = np.array([0.04, 0.09, 0.16, 0.25])
@@ -162,47 +176,42 @@ def test_ccd_diagonal_covariance_matches_inverse_vol_weights():
     expected = inv_vol / inv_vol.sum()
     assert np.allclose(w, expected, atol=1e-6)
 
+
 def test_ccd_two_asset_sanity_check_diagonal_case():
     Sigma = np.diag([0.04, 0.09])
     w = CCDSolver(Sigma).solve()
     expected = np.array([3.0, 2.0]) / 5.0
     assert np.allclose(w, expected, atol=1e-6)
 
-# Risk contribution validation tests
+
+# --- Risk contributions ---
+
+
 def test_risk_contributions_sum_to_portfolio_variance():
-    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    Sigma = COV_2.copy()
     w = np.array([0.6, 0.4])
     rc = risk_contributions(Sigma, w)
     portfolio_variance = w @ Sigma @ w
     assert np.isclose(rc.sum(), portfolio_variance)
 
+
 def test_relative_risk_contributions_sum_to_one():
-    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    Sigma = COV_2.copy()
     w = np.array([0.6, 0.4])
     rrc = relative_risk_contributions(Sigma, w)
     assert np.isclose(rrc.sum(), 1.0)
     assert np.all(rrc >= 0.0)
 
+
 def test_ccd_risk_contributions_are_close_to_equal():
-    Sigma = np.array(
-        [
-            [0.04, 0.01, 0.00],
-            [0.01, 0.09, 0.02],
-            [0.00, 0.02, 0.16],
-        ]
-    )
+    Sigma = COV_3.copy()
     w = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
     rc = risk_contributions(Sigma, w)
     assert np.allclose(rc, np.full(3, rc.mean()), atol=1e-6)
 
+
 def test_ccd_risk_contribution_gap_is_small():
-    Sigma = np.array(
-        [
-            [0.04, 0.01, 0.00],
-            [0.01, 0.09, 0.02],
-            [0.00, 0.02, 0.16],
-        ]
-    )
+    Sigma = COV_3.copy()
     w = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
     gap = risk_contribution_gap(Sigma, w)
     assert gap < 1e-6
@@ -211,11 +220,15 @@ def test_ccd_risk_contribution_gap_is_small():
 def test_risk_contributions_rejects_weight_length_mismatch():
     Sigma = np.eye(3)
     w = np.array([0.5, 0.5])
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"w must be a 1-D array with the same length as Sigma\."
+    ):
         risk_contributions(Sigma, w)
 
 
-# Scale and numerical-stability checks (larger n, stiff correlations)
+# --- CCD stress (scale / conditioning) ---
+
+
 def test_ccd_large_random_spd_portfolio():
     rng = np.random.default_rng(0)
     n = 64
@@ -257,7 +270,7 @@ def test_ccd_near_singular_low_rank_plus_jitter():
     assert gap < 1e-4
 
 
-# Robustness: random SPD covariance (CCD + SCA)
+# --- Robustness: random SPD (CCD + SCA) ---
 @pytest.mark.parametrize(
     "seed,n",
     [
@@ -330,7 +343,7 @@ def test_ccd_vs_sca_random_spd_non_binding_w_max(seed):
     assert np.allclose(w_sca, w_ccd, atol=5e-3)
 
 
-# Robustness: stability across portfolio dimensions (varying n)
+# --- Robustness: cross-dimensional stability ---
 @pytest.mark.parametrize("n", [2, 3, 6, 12, 24, 48, 72, 96])
 def test_ccd_identity_covariance_stable_across_dimensions(n):
     Sigma = np.eye(n)
@@ -407,7 +420,7 @@ def test_ccd_low_rank_spd_jitter_stable_across_dimensions(n, rank):
     assert solver.converged_ or gap < 1e-3
 
 
-# Robustness: boundary parameters (tol, max_iter, w_max feasibility margins)
+# --- Robustness: boundary parameters (tol, max_iter, w_max) ---
 
 
 def test_ccd_max_iter_minimum_still_returns_valid_weights():
@@ -421,7 +434,7 @@ def test_ccd_max_iter_minimum_still_returns_valid_weights():
 
 
 def test_ccd_very_loose_tol_converges_immediately_on_small_problem():
-    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    Sigma = COV_2.copy()
     solver = CCDSolver(Sigma, tol=0.2, max_iter=500)
     w = solver.solve()
     assert solver.converged_ is True
@@ -460,13 +473,7 @@ def test_sca_w_max_just_feasible_above_inverse_n(n):
 
 
 def test_sca_max_iter_one_returns_feasible_point():
-    Sigma = np.array(
-        [
-            [0.04, 0.01, 0.00],
-            [0.01, 0.09, 0.02],
-            [0.00, 0.02, 0.16],
-        ]
-    )
+    Sigma = COV_3.copy()
     w = SCASolver(Sigma, w_max=0.5, tol=1e-6, max_iter=1).solve()
     assert w.shape == (3,)
     assert np.all(np.isfinite(w))
@@ -497,15 +504,9 @@ def test_ccd_max_iter_large_does_not_break_small_identity():
     assert np.allclose(w, 0.25, rtol=0.0, atol=1e-8)
 
 
-# Robustness: constrained solver — box & simplex constraints
+# --- Robustness: SCA box + simplex constraints ---
 def test_sca_returns_feasible_weights():
-    Sigma = np.array(
-        [
-            [0.04, 0.01, 0.00],
-            [0.01, 0.09, 0.02],
-            [0.00, 0.02, 0.16],
-        ]
-    )
+    Sigma = COV_3.copy()
     w = SCASolver(Sigma, w_max=0.5, tol=1e-8, max_iter=500).solve()
     assert np.all(np.isfinite(w))
     assert np.isclose(w.sum(), 1.0, atol=1e-7)
@@ -568,13 +569,7 @@ def test_sca_rejects_invalid_w_max_domain():
 
 
 def test_sca_respects_explicit_w_max_grid():
-    Sigma = np.array(
-        [
-            [0.04, 0.01, 0.00],
-            [0.01, 0.09, 0.02],
-            [0.00, 0.02, 0.16],
-        ]
-    )
+    Sigma = COV_3.copy()
     for w_max in (1.0 / 3.0 + 1e-12, 0.4, 0.55, 0.8, 1.0):
         w = SCASolver(Sigma, w_max=w_max, tol=1e-8, max_iter=800).solve()
         assert w.shape == (3,)
@@ -603,7 +598,7 @@ def test_sca_constructor_propagates_tol_and_max_iter_validation():
 
 
 def test_sca_matches_ccd_when_w_max_is_non_binding():
-    Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
+    Sigma = COV_2.copy()
     w_ccd = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
     w_sca = SCASolver(Sigma, w_max=1.0, tol=1e-10, max_iter=500).solve()
     assert np.allclose(w_sca, w_ccd, atol=1e-4)
