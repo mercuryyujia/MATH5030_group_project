@@ -257,7 +257,9 @@ def test_ccd_near_singular_low_rank_plus_jitter():
     assert gap < 1e-4
 
 
-# Constrained solver (integration-style checks against the public API)
+# --- Robustness (Person 3): constrained solver — box & simplex constraints ---
+
+
 def test_sca_returns_feasible_weights():
     Sigma = np.array(
         [
@@ -282,8 +284,84 @@ def test_sca_tight_cap_still_satisfies_simplex_and_bounds():
 
 def test_sca_rejects_infeasible_w_max():
     Sigma = np.eye(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"w_max=0\.15 is infeasible for n=5"):
         SCASolver(Sigma, w_max=0.15)
+
+
+@pytest.mark.parametrize(
+    "n,w_max",
+    [
+        (4, 0.24),
+        (8, 0.124),
+        (10, 0.099),
+    ],
+)
+def test_sca_rejects_w_max_below_simplex_box_feasibility(n, w_max):
+    Sigma = np.eye(n)
+    with pytest.raises(ValueError, match=rf"w_max={w_max} is infeasible for n={n}"):
+        SCASolver(Sigma, w_max=w_max)
+
+
+def test_sca_accepts_w_max_at_inverse_n_boundary():
+    """Feasibility uses strict inequality w_max * n < 1 - 1e-12; equality w_max = 1/n is OK."""
+    n = 7
+    Sigma = np.eye(n)
+    w_max = 1.0 / n
+    w = SCASolver(Sigma, w_max=w_max, tol=1e-9, max_iter=800).solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w <= w_max + 1e-7)
+    assert np.all(w >= -1e-10)
+    assert np.allclose(w, np.full(n, w_max), atol=1e-5)
+
+
+def test_sca_rejects_invalid_w_max_domain():
+    Sigma = np.eye(3)
+    pat = r"w_max must lie in \(0, 1\]\."
+    with pytest.raises(ValueError, match=pat):
+        SCASolver(Sigma, w_max=0.0)
+    with pytest.raises(ValueError, match=pat):
+        SCASolver(Sigma, w_max=-0.05)
+    with pytest.raises(ValueError, match=pat):
+        SCASolver(Sigma, w_max=1.0 + 1e-6)
+    with pytest.raises(ValueError, match=pat):
+        SCASolver(Sigma, w_max=np.nan)
+    with pytest.raises(ValueError, match=pat):
+        SCASolver(Sigma, w_max=np.inf)
+
+
+def test_sca_respects_explicit_w_max_grid():
+    Sigma = np.array(
+        [
+            [0.04, 0.01, 0.00],
+            [0.01, 0.09, 0.02],
+            [0.00, 0.02, 0.16],
+        ]
+    )
+    for w_max in (1.0 / 3.0 + 1e-12, 0.4, 0.55, 0.8, 1.0):
+        w = SCASolver(Sigma, w_max=w_max, tol=1e-8, max_iter=800).solve()
+        assert w.shape == (3,)
+        assert np.all(np.isfinite(w))
+        assert np.isclose(w.sum(), 1.0, atol=1e-6), w_max
+        assert np.all(w >= -1e-9), w_max
+        assert np.all(w <= w_max + 1e-7), w_max
+
+
+def test_sca_binding_upper_bound_touches_cap_on_heterogeneous_diagonal():
+    """Tight w_max: at least one weight should sit on the upper bound (within tol)."""
+    Sigma = np.diag([0.01, 0.64, 0.09])
+    w_max = 1.0 / 3.0 + 1e-12
+    w = SCASolver(Sigma, w_max=w_max, tol=1e-8, max_iter=1000).solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-6)
+    assert np.all(w <= w_max + 1e-7)
+    assert np.max(w) >= w_max - 1e-6
+
+
+def test_sca_constructor_propagates_tol_and_max_iter_validation():
+    Sigma = np.eye(2)
+    with pytest.raises(ValueError, match=r"tol must be a positive finite float\."):
+        SCASolver(Sigma, w_max=1.0, tol=0.0)
+    with pytest.raises(ValueError, match=r"max_iter must be at least 1\."):
+        SCASolver(Sigma, w_max=1.0, max_iter=0)
 
 
 def test_sca_matches_ccd_when_w_max_is_non_binding():

@@ -93,8 +93,8 @@ class CCDSolver:
         n = Sigma.shape[0]
         c = 1.0 / n
 
-        w = np.full(n, 1.0 / n)
-        Sw = Sigma @ w
+        w = np.full(n, 1.0 / n, dtype=np.float64)
+        Sw = (Sigma @ w).astype(np.float64, copy=False)
 
         for it in range(1, self.max_iter + 1):
             w_old = w.copy()
@@ -102,6 +102,8 @@ class CCDSolver:
                 sigma_ii = Sigma[i, i]
                 b_i = Sw[i] - sigma_ii * w[i]
                 disc = b_i * b_i + 4.0 * sigma_ii * c
+                if disc < 0.0:
+                    disc = 0.0
                 w_new = (-b_i + np.sqrt(disc)) / (2.0 * sigma_ii)
                 delta = w_new - w[i]
                 if delta != 0.0:
