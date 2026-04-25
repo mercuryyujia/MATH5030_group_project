@@ -14,15 +14,21 @@ Modern portfolios require each asset to contribute equally to total risk — a p
 
 ```bash
 pip install risk-parity-constrained
+```
+
 Or clone and install locally:
 
 ```bash
 git clone https://github.com/mercuryyujia/MATH5030_group_project.git
 cd MATH5030_group_project
 pip install -e .
-pip install -e .[test]
 ```
+For tests:
 
+```bash
+pip install -e .[test] 
+pytest
+```
 ---
 
 ## Quick start
@@ -30,15 +36,16 @@ pip install -e .[test]
 ```python
 import numpy as np
 from riskparity import CCDSolver, SCASolver, relative_risk_contributions
-print(relative_risk_contributions(Sigma, w))
 
 Sigma = np.array([[0.04, 0.01], [0.01, 0.09]])
 
-# Unconstrained
 w = CCDSolver(Sigma).solve()
+print(w)
+print(relative_risk_contributions(Sigma, w))
 
-# Constrained (max 60% per asset)
 w_constrained = SCASolver(Sigma, w_max=0.6).solve()
+print(w_constrained)
+print(relative_risk_contributions(Sigma, w_constrained))
 ```
 
 ---
@@ -77,3 +84,36 @@ MIT
 ## Demo notebook
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mercuryyujia/MATH5030_group_project/blob/main/notebooks/demo.ipynb)
+
+
+## Project structure
+.
+├── LICENSE
+├── notebooks
+│   ├── demo.html
+│   ├── demo.ipynb
+│   └── demo.pdf
+├── Numerical_Methods_Proposal.pdf
+├── Project Prototype _ MATHGR5030 [2026S] - NUMERICAL METHODS IN FINANCE.pdf
+├── Project Suggestion_ Risk Parity_ MATHGR5030 [2026S] - NUMERICAL METHODS IN FINANCE.pdf
+├── pyproject.toml
+├── README.md
+├── risk_parity_constrained.egg-info
+│   ├── dependency_links.txt
+│   ├── PKG-INFO
+│   ├── requires.txt
+│   ├── SOURCES.txt
+│   └── top_level.txt
+├── riskparity
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-313.pyc
+│   │   └── _core.cpython-313.pyc
+│   └── _core.py
+└── tests
+    ├── __pycache__
+    │   ├── test_riskparity.cpython-313-pytest-8.4.2.pyc
+    │   └── test_riskparity.cpython-313-pytest-9.0.3.pyc
+    └── test_riskparity.py
+
+7 directories, 21 files
