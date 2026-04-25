@@ -98,7 +98,7 @@ def test_validate_covariance_rejects_non_symmetric_matrix():
 
 
 def test_validate_covariance_accepts_near_symmetric_within_atol():
-    """np.allclose(Sigma, Sigma.T, atol=1e-10) should accept tiny off-diagonal asymmetry."""
+    """Accept tiny off-diagonal asymmetry within the symmetry tolerance."""
     Sigma = np.array([[1.0, 0.0], [1e-11, 1.0]])
     out = _validate_covariance(Sigma)
     assert out.shape == (2, 2)
@@ -161,6 +161,7 @@ def test_validate_max_iter_rejects_nonpositive():
 # CCDSolver (correctness)
 
 def test_ccd_sets_internal_attributes_after_solve():
+    """Check that CCDSolver stores diagnostics after solve()."""
     Sigma = np.eye(3)
     solver = CCDSolver(Sigma)
     w = solver.solve()
@@ -204,6 +205,7 @@ def test_ccd_two_asset_sanity_check_diagonal_case():
 
 
 # Analytical and regression tests
+
 def test_ccd_fixed_covariance_regression_reference_weights():
     """Reference regression on a fixed SPD matrix to catch implementation drift."""
     Sigma = COV_3.copy()
@@ -325,6 +327,7 @@ def test_ccd_near_singular_low_rank_plus_jitter():
 
 
 # Robustness: random SPD (CCD + SCA)
+
 @pytest.mark.parametrize(
     "seed,n",
     [
@@ -597,7 +600,7 @@ def test_sca_rejects_w_max_below_simplex_box_feasibility(n, w_max):
 
 
 def test_sca_accepts_w_max_at_inverse_n_boundary():
-    """Feasibility uses strict inequality w_max * n < 1 - 1e-12; equality w_max = 1/n is OK."""
+    """At w_max = 1/n, SCA should return the equal-weight feasible solution."""
     n = 7
     Sigma = np.eye(n)
     w_max = 1.0 / n
