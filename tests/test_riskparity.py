@@ -258,8 +258,6 @@ def test_ccd_near_singular_low_rank_plus_jitter():
 
 
 # Robustness: random SPD covariance (CCD + SCA)
-
-
 @pytest.mark.parametrize(
     "seed,n",
     [
@@ -332,9 +330,84 @@ def test_ccd_vs_sca_random_spd_non_binding_w_max(seed):
     assert np.allclose(w_sca, w_ccd, atol=5e-3)
 
 
+# Robustness: stability across portfolio dimensions (varying n)
+@pytest.mark.parametrize("n", [2, 3, 6, 12, 24, 48, 72, 96])
+def test_ccd_identity_covariance_stable_across_dimensions(n):
+    Sigma = np.eye(n)
+    w = CCDSolver(Sigma, tol=1e-10, max_iter=min(6000, max(1500, 40 * n))).solve()
+    assert w.shape == (n,)
+    assert np.allclose(w, np.full(n, 1.0 / n), rtol=0.0, atol=1e-8)
+    assert np.isclose(w.sum(), 1.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("n", [3, 8, 16, 24, 32, 48, 64])
+def test_ccd_random_spd_stable_across_dimensions(n):
+    rng = np.random.default_rng(9000 + n)
+    Sigma = _random_spd_matrix(rng, n)
+    tol = 1e-8 if n <= 40 else 5e-8
+    max_iter = min(10000, max(4000, 80 * n))
+    solver = CCDSolver(Sigma, tol=tol, max_iter=max_iter)
+    w = solver.solve()
+    assert w.shape == (n,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-9)
+    assert np.all(w > 0.0)
+    assert solver.converged_ is True
+    gap = risk_contribution_gap(Sigma, w)
+    gap_cap = max(8e-5, 5e-7 * n)
+    assert gap < gap_cap
+
+
+@pytest.mark.parametrize("n", [10, 20, 32, 44, 56])
+def test_ccd_equicorrelation_stable_across_dimensions(n):
+    rho = 0.84
+    vol = np.sqrt(np.linspace(0.015, 0.055, n))
+    Sigma = _equicorrelation_covariance(n, rho, vol)
+    max_iter = min(12000, max(6000, 100 * n))
+    solver = CCDSolver(Sigma, tol=1e-8, max_iter=max_iter)
+    w = solver.solve()
+    assert w.shape == (n,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-8)
+    assert np.all(w > 0.0)
+    assert solver.converged_ is True
+    rc = risk_contributions(Sigma, w)
+    atol_rc = 8e-4 if n >= 44 else 3e-4
+    assert np.allclose(rc, np.full(n, rc.mean()), rtol=0.0, atol=atol_rc)
+
+
+@pytest.mark.parametrize("n", [8, 16, 28, 40, 52])
+def test_sca_random_spd_stable_across_dimensions(n):
+    rng = np.random.default_rng(11000 + n)
+    Sigma = _random_spd_matrix(rng, n)
+    max_iter = min(2500, max(1200, 20 * n))
+    w = SCASolver(Sigma, w_max=1.0, tol=1e-7, max_iter=max_iter).solve()
+    assert w.shape == (n,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-6)
+    assert np.all(w >= -1e-8)
+    assert np.all(w <= 1.0 + 1e-7)
+
+
+@pytest.mark.parametrize("n,rank", [(20, 3), (32, 4), (44, 5), (36, 4)])
+def test_ccd_low_rank_spd_jitter_stable_across_dimensions(n, rank):
+    rng = np.random.default_rng(13000 + n + rank)
+    b = rng.standard_normal((n, rank))
+    Sigma = b @ b.T + 1e-5 * np.eye(n)
+    Sigma = 0.5 * (Sigma + Sigma.T)
+    max_iter = min(20000, max(10000, 150 * n))
+    solver = CCDSolver(Sigma, tol=5e-8, max_iter=max_iter)
+    w = solver.solve()
+    assert w.shape == (n,)
+    assert np.all(np.isfinite(w))
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w > 0.0)
+    gap = risk_contribution_gap(Sigma, w)
+    assert gap < 2e-3
+    assert solver.converged_ or gap < 1e-3
+
+
 # Robustness: constrained solver — box & simplex constraints
-
-
 def test_sca_returns_feasible_weights():
     Sigma = np.array(
         [
