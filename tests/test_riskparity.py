@@ -19,6 +19,16 @@ from riskparity._core import (
     risk_contribution_gap,
 )
 
+# Public API
+
+
+def test_public_api_imports():
+    """Check that the main solvers are exposed through the package API."""
+    import riskparity
+    assert hasattr(riskparity, "CCDSolver")
+    assert hasattr(riskparity, "SCASolver")
+    assert hasattr(riskparity, "risk_contributions")
+
 
 def _random_spd_matrix(rng: np.random.Generator, n: int) -> np.ndarray:
     """Draw a symmetric positive definite matrix (well conditioned)."""
@@ -150,7 +160,15 @@ def test_validate_max_iter_rejects_nonpositive():
 
 
 # --- CCDSolver (correctness) ---
-
+def test_ccd_sets_internal_attributes_after_solve():
+    Sigma = np.eye(3)
+    solver = CCDSolver(Sigma)
+    w = solver.solve()
+    assert np.isclose(w.sum(), 1.0)
+    assert solver.n_iter_ is not None
+    assert isinstance(solver.converged_, bool)
+    assert solver.objective_ is not None
+    assert solver.risk_contribution_gap_ is not None
 
 def test_ccd_returns_valid_weights():
     Sigma = COV_3.copy()
