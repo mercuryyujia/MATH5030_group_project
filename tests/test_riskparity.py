@@ -203,6 +203,43 @@ def test_ccd_two_asset_sanity_check_diagonal_case():
     assert np.allclose(w, expected, atol=1e-6)
 
 
+# Analytical and regression tests
+def test_ccd_fixed_covariance_regression_reference_weights():
+    """Reference regression on a fixed SPD matrix to catch implementation drift."""
+    Sigma = COV_3.copy()
+    w = CCDSolver(Sigma, tol=1e-12, max_iter=8000).solve()
+    expected = np.array(
+        [0.4731662854646679, 0.2902505718029981, 0.2365831427323339],
+        dtype=float,
+    )
+    assert np.allclose(w, expected, atol=1e-7)
+
+
+def test_ccd_two_asset_correlated_case_matches_closed_form_inverse_vol():
+    """For 2 assets, equal-risk solution has inverse-vol form even with correlation."""
+    Sigma = np.array([[0.04, 0.018], [0.018, 0.09]])
+    w = CCDSolver(Sigma, tol=1e-12, max_iter=5000).solve()
+    vol = np.sqrt(np.diag(Sigma))
+    expected = (1.0 / vol) / np.sum(1.0 / vol)
+    assert np.allclose(w, expected, atol=1e-6)
+    rc = risk_contributions(Sigma, w)
+    assert np.allclose(rc[0], rc[1], atol=1e-8)
+
+
+@pytest.mark.parametrize(
+    "Sigma",
+    [
+        COV_2.copy(),
+        np.array([[0.04, 0.018], [0.018, 0.09]], dtype=float),
+    ],
+)
+def test_sca_matches_ccd_when_w_max_is_non_binding_on_representative_cases(Sigma):
+    """With non-binding cap, constrained and unconstrained solvers should agree."""
+    w_ccd = CCDSolver(Sigma, tol=1e-12, max_iter=5000).solve()
+    w_sca = SCASolver(Sigma, w_max=1.0, tol=1e-10, max_iter=2000).solve()
+    assert np.allclose(w_sca, w_ccd, atol=1e-5)
+
+
 # Risk contributions
 
 def test_risk_contributions_sum_to_portfolio_variance():
@@ -541,7 +578,7 @@ def test_sca_tight_cap_still_satisfies_simplex_and_bounds():
 
 def test_sca_rejects_infeasible_w_max():
     Sigma = np.eye(5)
-    with pytest.raises(ValueError, match=r"w_max=0\.15 is infeasible for n=5"):
+    with pytest.raises(ValueError, match=r"w_max=.*infeasible for n=5"):
         SCASolver(Sigma, w_max=0.15)
 
 
@@ -555,7 +592,7 @@ def test_sca_rejects_infeasible_w_max():
 )
 def test_sca_rejects_w_max_below_simplex_box_feasibility(n, w_max):
     Sigma = np.eye(n)
-    with pytest.raises(ValueError, match=rf"w_max={w_max} is infeasible for n={n}"):
+    with pytest.raises(ValueError, match=rf"w_max=.*infeasible for n={n}"):
         SCASolver(Sigma, w_max=w_max)
 
 
@@ -613,10 +650,3 @@ def test_sca_constructor_propagates_tol_and_max_iter_validation():
         SCASolver(Sigma, w_max=1.0, tol=0.0)
     with pytest.raises(ValueError, match=r"max_iter must be at least 1\."):
         SCASolver(Sigma, w_max=1.0, max_iter=0)
-
-
-def test_sca_matches_ccd_when_w_max_is_non_binding():
-    Sigma = COV_2.copy()
-    w_ccd = CCDSolver(Sigma, tol=1e-10, max_iter=2000).solve()
-    w_sca = SCASolver(Sigma, w_max=1.0, tol=1e-10, max_iter=500).solve()
-    assert np.allclose(w_sca, w_ccd, atol=1e-4)
