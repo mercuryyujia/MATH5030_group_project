@@ -87,6 +87,7 @@ MIT
 
 
 ## Project structure
+```
 .
 ├── LICENSE
 ├── notebooks
@@ -117,3 +118,4 @@ MIT
     └── test_riskparity.py
 
 7 directories, 21 files
+```
