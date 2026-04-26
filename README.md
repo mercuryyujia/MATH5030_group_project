@@ -146,6 +146,11 @@ Returns the maximum absolute deviation from equal risk contributions.
 
 ## Testing
 
+The test suite is organized around correctness, validation, and robustness:
+
+- **Correct implementation and validation**: covariance input validation, CCD solver checks, diagonal covariance closed-form cases, two-asset sanity checks, long-only weights that sum to one, and equal risk contribution checks.
+- **Robustness testing**: constrained solver feasibility, infeasible `w_max` errors, randomized covariance matrices, stability across different portfolio sizes, and boundary parameter cases.
+
 Run the test suite with:
 
 ```bash
