@@ -190,7 +190,8 @@ The repository includes a demonstration notebook in [`notebooks/demo.ipynb`](./n
 
 - Feng, Y., and Palomar, D. P. (2015). SCRIP: Successive Convex Optimization Methods for Risk Parity Portfolio Design. *IEEE Transactions on Signal Processing*. https://ieeexplore.ieee.org/document/7145485
 - Choi, J., and Chen, R. (2022). Improved iterative methods for solving risk parity portfolio. *Journal of Derivatives and Quantitative Studies*, 30(2), 114-124. https://doi.org/10.1108/JDQS-12-2021-0031
-- `riskParityPortfolio`: R package for risk parity portfolio design, used for one fixed reference validation example. https://github.com/dppalomar/riskParityPortfolio
+- Cardoso, J. V. de M., and Palomar, D. P. `riskParityPortfolio`: Design of Risk Parity Portfolios. https://github.com/dppalomar/riskParityPortfolio
+
 
 ## License
 
