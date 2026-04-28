@@ -217,6 +217,55 @@ def test_ccd_fixed_covariance_regression_reference_weights():
     assert np.allclose(w, expected, atol=1e-7)
 
 
+def test_ccd_matches_riskparityportfolio_readme_reference_example():
+    """Match the public riskParityPortfolio README example from R set.seed(42)."""
+    # Source example:
+    # set.seed(42); N <- 5; V <- matrix(rnorm(N^2), ncol = N); Sigma <- cov(V)
+    # The expected weights are the README output from riskParityPortfolio(Sigma).
+    Sigma = np.array(
+        [
+            [
+                0.4801188807777429,
+                -0.30572104311802423,
+                -0.25679598847701546,
+                0.14211478575036879,
+                0.42071591100057448,
+            ],
+            [
+                -0.30572104311802423,
+                1.0622380648411025,
+                0.4313019214811612,
+                -0.75419580442894918,
+                -0.21652431205803163,
+            ],
+            [
+                -0.25679598847701546,
+                0.4313019214811612,
+                2.0786635079669096,
+                1.4000578790801681,
+                -1.2825690301607684,
+            ],
+            [
+                0.14211478575036879,
+                -0.75419580442894918,
+                1.4000578790801681,
+                3.2235720789574756,
+                0.22194856932813867,
+            ],
+            [
+                0.42071591100057448,
+                -0.21652431205803163,
+                -1.2825690301607684,
+                0.22194856932813867,
+                2.0548335344840334,
+            ],
+        ]
+    )
+    expected = np.array([0.32715962, 0.27110678, 0.14480081, 0.09766356, 0.15926922])
+    w = CCDSolver(Sigma, tol=1e-12, max_iter=10000).solve()
+    assert np.allclose(w, expected, atol=1e-7)
+
+
 def test_ccd_two_asset_correlated_case_matches_closed_form_inverse_vol():
     """For 2 assets, equal-risk solution has inverse-vol form even with correlation."""
     Sigma = np.array([[0.04, 0.018], [0.018, 0.09]])
