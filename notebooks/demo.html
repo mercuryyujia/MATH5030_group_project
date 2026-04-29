@@ -7332,7 +7332,12 @@ a.anchor-link {
     if (!diagrams.length) {
       return;
     }
-    const mermaid = (await import("https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.7.0/mermaid.esm.min.mjs")).default;
+    const mermaid = (await import("https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.10.0/mermaid.esm.min.mjs")).default;
+    const elkUrl = "https://cdnjs.cloudflare.com/ajax/libs/mermaid-layout-elk/0.1.9/mermaid-layout-elk.esm.min.mjs";
+    if(elkUrl) {
+      const elkLayouts = (await import(elkUrl)).default;
+      mermaid.registerLayoutLoaders(elkLayouts);
+    }
     const parser = new DOMParser();
 
     mermaid.initialize({
@@ -7429,7 +7434,8 @@ a.anchor-link {
      * Post-process to ensure mermaid diagrams contain only valid SVG and XHTML.
      */
     function cleanMermaidSvg(svg) {
-      return svg.replace(RE_VOID_ELEMENT, replaceVoidElement);
+      svg = svg.replace(RE_VOID_ELEMENT, replaceVoidElement);
+      return `${SVG_XML_HEADER}${svg}`;
     }
 
 
@@ -7455,6 +7461,285 @@ a.anchor-link {
       }
       return `<${tag} ${rest}>`;
     }
+
+
+  /**
+   * Named HTML entities with their decimal equivalent codes.
+   *
+   * @see https://www.w3.org/TR/WD-html40-970708/sgml/entities.html
+   * */
+  const HTML_ENTITIES = `<!ENTITY Aacute "&#193;">
+<!ENTITY aacute "&#225;">
+<!ENTITY Acirc "&#194;">
+<!ENTITY acirc "&#226;">
+<!ENTITY acute "&#180;">
+<!ENTITY AElig "&#198;">
+<!ENTITY aelig "&#230;">
+<!ENTITY Agrave "&#192;">
+<!ENTITY agrave "&#224;">
+<!ENTITY alefsym "&#8501;">
+<!ENTITY Alpha "&#913;">
+<!ENTITY alpha "&#945;">
+<!ENTITY amp "&#38;">
+<!ENTITY and "&#8869;">
+<!ENTITY ang "&#8736;">
+<!ENTITY Aring "&#197;">
+<!ENTITY aring "&#229;">
+<!ENTITY asymp "&#8776;">
+<!ENTITY Atilde "&#195;">
+<!ENTITY atilde "&#227;">
+<!ENTITY Auml "&#196;">
+<!ENTITY auml "&#228;">
+<!ENTITY bdquo "&#8222;">
+<!ENTITY Beta "&#914;">
+<!ENTITY beta "&#946;">
+<!ENTITY brvbar "&#166;">
+<!ENTITY bull "&#8226;">
+<!ENTITY cap "&#8745;">
+<!ENTITY Ccedil "&#199;">
+<!ENTITY ccedil "&#231;">
+<!ENTITY cedil "&#184;">
+<!ENTITY cent "&#162;">
+<!ENTITY Chi "&#935;">
+<!ENTITY chi "&#967;">
+<!ENTITY circ "&#710;">
+<!ENTITY clubs "&#9827;">
+<!ENTITY cong "&#8773;">
+<!ENTITY copy "&#169;">
+<!ENTITY crarr "&#8629;">
+<!ENTITY cup "&#8746;">
+<!ENTITY curren "&#164;">
+<!ENTITY dagger "&#8224;">
+<!ENTITY Dagger "&#8225;">
+<!ENTITY darr "&#8595;">
+<!ENTITY dArr "&#8659;">
+<!ENTITY deg "&#176;">
+<!ENTITY Delta "&#916;">
+<!ENTITY delta "&#948;">
+<!ENTITY diams "&#9830;">
+<!ENTITY divide "&#247;">
+<!ENTITY Eacute "&#201;">
+<!ENTITY eacute "&#233;">
+<!ENTITY Ecirc "&#202;">
+<!ENTITY ecirc "&#234;">
+<!ENTITY Egrave "&#200;">
+<!ENTITY egrave "&#232;">
+<!ENTITY empty "&#8709;">
+<!ENTITY emsp "&#8195;">
+<!ENTITY ensp "&#8194;">
+<!ENTITY epsilon "&#949;">
+<!ENTITY Epsilon "&#917;">
+<!ENTITY equiv "&#8801;">
+<!ENTITY Eta "&#919;">
+<!ENTITY eta "&#951;">
+<!ENTITY ETH "&#208;">
+<!ENTITY eth "&#240;">
+<!ENTITY Euml "&#203;">
+<!ENTITY euml "&#235;">
+<!ENTITY exist "&#8707;">
+<!ENTITY fnof "&#402;">
+<!ENTITY forall "&#8704;">
+<!ENTITY frac12 "&#189;">
+<!ENTITY frac14 "&#188;">
+<!ENTITY frac34 "&#190;">
+<!ENTITY frasl "&#8260;">
+<!ENTITY Gamma "&#915;">
+<!ENTITY gamma "&#947;">
+<!ENTITY ge "&#8805;">
+<!ENTITY gt "&#62;">
+<!ENTITY harr "&#8596;">
+<!ENTITY hArr "&#8660;">
+<!ENTITY hearts "&#9829;">
+<!ENTITY hellip "&#8230;">
+<!ENTITY Iacute "&#205;">
+<!ENTITY iacute "&#237;">
+<!ENTITY Icirc "&#206;">
+<!ENTITY icirc "&#238;">
+<!ENTITY iexcl "&#161;">
+<!ENTITY Igrave "&#204;">
+<!ENTITY igrave "&#236;">
+<!ENTITY image "&#8465;">
+<!ENTITY infin "&#8734;">
+<!ENTITY int "&#8747;">
+<!ENTITY Iota "&#921;">
+<!ENTITY iota "&#953;">
+<!ENTITY iquest "&#191;">
+<!ENTITY isin "&#8712;">
+<!ENTITY Iuml "&#207;">
+<!ENTITY iuml "&#239;">
+<!ENTITY Kappa "&#922;">
+<!ENTITY kappa "&#954;">
+<!ENTITY Lambda "&#923;">
+<!ENTITY lambda "&#955;">
+<!ENTITY lang "&#9001;">
+<!ENTITY laquo "&#171;">
+<!ENTITY larr "&#8592;">
+<!ENTITY lArr "&#8656;">
+<!ENTITY lceil "&#8968;">
+<!ENTITY ldquo "&#8220;">
+<!ENTITY le "&#8804;">
+<!ENTITY lfloor "&#8970;">
+<!ENTITY lowast "&#8727;">
+<!ENTITY loz "&#9674;">
+<!ENTITY lrm "&#8206;">
+<!ENTITY lsaquo "&#8249;">
+<!ENTITY lsquo "&#8216;">
+<!ENTITY lt "&#60;">
+<!ENTITY macr "&#175;">
+<!ENTITY mdash "&#8212;">
+<!ENTITY micro "&#181;">
+<!ENTITY middot "&#183;">
+<!ENTITY minus "&#8722;">
+<!ENTITY Mu "&#924;">
+<!ENTITY mu "&#956;">
+<!ENTITY nabla "&#8711;">
+<!ENTITY nbsp "&#160;">
+<!ENTITY ndash "&#8211;">
+<!ENTITY ne "&#8800;">
+<!ENTITY ni "&#8715;">
+<!ENTITY not "&#172;">
+<!ENTITY notin "&#8713;">
+<!ENTITY nsub "&#8836;">
+<!ENTITY Ntilde "&#209;">
+<!ENTITY ntilde "&#241;">
+<!ENTITY Nu "&#925;">
+<!ENTITY nu "&#957;">
+<!ENTITY Oacute "&#211;">
+<!ENTITY oacute "&#243;">
+<!ENTITY Ocirc "&#212;">
+<!ENTITY ocirc "&#244;">
+<!ENTITY OElig "&#338;">
+<!ENTITY oelig "&#339;">
+<!ENTITY Ograve "&#210;">
+<!ENTITY ograve "&#242;">
+<!ENTITY oline "&#8254;">
+<!ENTITY Omega "&#937;">
+<!ENTITY omega "&#969;">
+<!ENTITY Omicron "&#927;">
+<!ENTITY omicron "&#959;">
+<!ENTITY oplus "&#8853;">
+<!ENTITY or "&#8870;">
+<!ENTITY ordf "&#170;">
+<!ENTITY ordm "&#186;">
+<!ENTITY Oslash "&#216;">
+<!ENTITY oslash "&#248;">
+<!ENTITY Otilde "&#213;">
+<!ENTITY otilde "&#245;">
+<!ENTITY otimes "&#8855;">
+<!ENTITY Ouml "&#214;">
+<!ENTITY ouml "&#246;">
+<!ENTITY para "&#182;">
+<!ENTITY part "&#8706;">
+<!ENTITY permil "&#8240;">
+<!ENTITY perp "&#8869;">
+<!ENTITY Phi "&#934;">
+<!ENTITY phi "&#966;">
+<!ENTITY Pi "&#928;">
+<!ENTITY pi "&#960;">
+<!ENTITY piv "&#982;">
+<!ENTITY plusmn "&#177;">
+<!ENTITY pound "&#163;">
+<!ENTITY prime "&#8242;">
+<!ENTITY Prime "&#8243;">
+<!ENTITY prod "&#8719;">
+<!ENTITY prop "&#8733;">
+<!ENTITY Psi "&#936;">
+<!ENTITY psi "&#968;">
+<!ENTITY quot "&#34;">
+<!ENTITY radic "&#8730;">
+<!ENTITY rang "&#9002;">
+<!ENTITY raquo "&#187;">
+<!ENTITY rarr "&#8594;">
+<!ENTITY rArr "&#8658;">
+<!ENTITY rceil "&#8969;">
+<!ENTITY rdquo "&#8221;">
+<!ENTITY real "&#8476;">
+<!ENTITY reg "&#174;">
+<!ENTITY rfloor "&#8971;">
+<!ENTITY Rho "&#929;">
+<!ENTITY rho "&#961;">
+<!ENTITY rlm "&#8207;">
+<!ENTITY rsaquo "&#8250;">
+<!ENTITY rsquo "&#8217;">
+<!ENTITY sbquo "&#8218;">
+<!ENTITY Scaron "&#352;">
+<!ENTITY scaron "&#353;">
+<!ENTITY sdot "&#8901;">
+<!ENTITY sect "&#167;">
+<!ENTITY shy "&#173;">
+<!ENTITY Sigma "&#931;">
+<!ENTITY sigma "&#963;">
+<!ENTITY sigmaf "&#962;">
+<!ENTITY sim "&#8764;">
+<!ENTITY spades "&#9824;">
+<!ENTITY sub "&#8834;">
+<!ENTITY sube "&#8838;">
+<!ENTITY sum "&#8721;">
+<!ENTITY sup "&#8835;">
+<!ENTITY sup1 "&#185;">
+<!ENTITY sup2 "&#178;">
+<!ENTITY sup3 "&#179;">
+<!ENTITY supe "&#8839;">
+<!ENTITY szlig "&#223;">
+<!ENTITY Tau "&#932;">
+<!ENTITY tau "&#964;">
+<!ENTITY there4 "&#8756;">
+<!ENTITY Theta "&#920;">
+<!ENTITY theta "&#952;">
+<!ENTITY thetasym "&#977;">
+<!ENTITY thinsp "&#8201;">
+<!ENTITY THORN "&#222;">
+<!ENTITY thorn "&#254;">
+<!ENTITY tilde "&#732;">
+<!ENTITY times "&#215;">
+<!ENTITY trade "&#8482;">
+<!ENTITY Uacute "&#218;">
+<!ENTITY uacute "&#250;">
+<!ENTITY uarr "&#8593;">
+<!ENTITY uArr "&#8657;">
+<!ENTITY Ucirc "&#219;">
+<!ENTITY ucirc "&#251;">
+<!ENTITY Ugrave "&#217;">
+<!ENTITY ugrave "&#249;">
+<!ENTITY uml "&#168;">
+<!ENTITY upsih "&#978;">
+<!ENTITY Upsilon "&#933;">
+<!ENTITY upsilon "&#965;">
+<!ENTITY Uuml "&#220;">
+<!ENTITY uuml "&#252;">
+<!ENTITY weierp "&#8472;">
+<!ENTITY Xi "&#926;">
+<!ENTITY xi "&#958;">
+<!ENTITY Yacute "&#221;">
+<!ENTITY yacute "&#253;">
+<!ENTITY yen "&#165;">
+<!ENTITY Yuml "&#376;">
+<!ENTITY yuml "&#255;">
+<!ENTITY Zeta "&#918;">
+<!ENTITY zeta "&#950;">
+<!ENTITY zwj "&#8205;">
+<!ENTITY zwnj "&#8204;">`.replace(/\n/g, ' ');
+
+  /**
+   * A reasonably strict xml declaration.
+   */
+  const XML_DECL = '<?xml version="1.0" standalone="no"?>';
+
+  /**
+   * The beginning of the XML doctype declaration.
+   */
+  const DOCTYPE_START = `<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [`;
+
+  /**
+   * The end of the XML docype declaration.
+   */
+  const DOCTYPE_END = ']>';
+
+  /**
+   * A full header for an SVG XML document.
+   */
+  const SVG_XML_HEADER = `${XML_DECL}
+    ${DOCTYPE_START}${HTML_ENTITIES}${DOCTYPE_END}`;
 
     void Promise.all([...diagrams].map(renderOneMarmaid));
   });
@@ -7510,7 +7795,24 @@ a.anchor-link {
 </style>
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
-<main><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=sk6ixoFQRBY1">
+<main>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=fd6d363a">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h1 id="Risk-Parity-Portfolio-Optimization-Demo">Risk Parity Portfolio Optimization Demo<a class="anchor-link" href="#Risk-Parity-Portfolio-Optimization-Demo">¶</a></h1><h2 id="Introduction-to-risk-parity">Introduction to risk parity<a class="anchor-link" href="#Introduction-to-risk-parity">¶</a></h2><p>This notebook is the main demonstration for the <code>riskparity</code> package. It is designed to work as both a runnable demo and a presentation notebook: we start with the intuition behind risk parity, then compare an unconstrained solver with a constrained solver, and finally inspect diagnostics, plots, robustness checks, and limitations.</p>
+<p>In a traditional equal-weight portfolio, each asset receives the same capital weight. However, equal capital does not mean equal risk. A high-volatility asset, or an asset that is strongly correlated with the rest of the portfolio, can contribute much more to total portfolio risk than a low-volatility asset with the same capital weight.</p>
+<p>Risk parity addresses this by allocating weights so that each asset contributes approximately the same share of total portfolio variance. In other words, the portfolio is diversified by <strong>risk contribution</strong>, not only by capital allocation.</p>
+<p>For portfolio weights <code>w</code> and covariance matrix <code>Sigma</code>, asset <code>i</code> has risk contribution</p>
+<p><code>RC_i = w_i (Sigma w)_i</code>.</p>
+<p>The relative risk contributions are these values divided by total portfolio variance. In an ideal equal-risk portfolio with <code>n</code> assets, each relative risk contribution is close to <code>1/n</code>.</p>
+<p>The goal of this notebook is to make the package easy to inspect: every solver output is checked for feasibility, portfolio risk, and relative risk contributions.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=sk6ixoFQRBY1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7525,32 +7827,49 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=fd6d363a">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Risk-Parity-Portfolio-Optimization-Demo">Risk Parity Portfolio Optimization Demo<a class="anchor-link" href="#Risk-Parity-Portfolio-Optimization-Demo">¶</a></h1><p>This notebook is the main demonstration for the <code>riskparity</code> package. It walks from a minimal example to diagnostic plots, constrained optimization, a weight-cap sweep, and a randomized robustness check.</p>
-<p>The goal is to make the package easy to inspect: every solver output is checked for feasibility, portfolio risk, and relative risk contributions.</p>
-</div>
-</div>
-</div>
-</div>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=d5d9e2b8">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Method-overview">Method overview<a class="anchor-link" href="#Method-overview">¶</a></h2><p>Risk parity allocates capital so that each asset contributes roughly the same share of total portfolio variance. For weights <code>w</code> and covariance matrix <code>Sigma</code>, asset <code>i</code> contributes</p>
-<p><code>RC_i = w_i (Sigma w)_i</code>.</p>
-<p>The package exposes two solvers:</p>
+<h2 id="Method-overview:-CCD-and-SCA">Method overview: CCD and SCA<a class="anchor-link" href="#Method-overview:-CCD-and-SCA">¶</a></h2><p>The package exposes two solvers. They solve related risk parity problems, but they represent two different levels of practical constraint.</p>
+<h3 id="CCDSolver:-unconstrained-long-only-risk-parity"><code>CCDSolver</code>: unconstrained long-only risk parity<a class="anchor-link" href="#CCDSolver:-unconstrained-long-only-risk-parity">¶</a></h3><p><code>CCDSolver</code> is the baseline solver. It solves the long-only risk parity problem with two core constraints:</p>
 <ul>
-<li><code>CCDSolver</code>: unconstrained long-only risk parity baseline.</li>
-<li><code>SCASolver</code>: constrained solver with a per-asset upper bound <code>w_i &lt;= w_max</code>.</li>
+<li>all weights are non-negative;</li>
+<li>all weights sum to one.</li>
 </ul>
-<p>When the upper bound is tight, exact equal risk contribution may no longer be feasible. The constrained example below shows this trade-off explicitly.</p>
+<p>It does <strong>not</strong> impose an individual upper bound on each asset. This makes CCD useful as a clean benchmark: if there are no additional portfolio policy constraints, the solver can focus on making the relative risk contributions as equal as possible.</p>
+<p>The CCD implementation solves the convex surrogate objective</p>
+<p><code>min_w 0.5 w^T Sigma w - (1/n) sum_i log(w_i)</code>,</p>
+<p>then normalizes the result so the final weights sum to one. The log term keeps weights positive, while the quadratic term uses the covariance structure of the portfolio.</p>
+<h4 id="CCD-algorithm">CCD algorithm<a class="anchor-link" href="#CCD-algorithm">¶</a></h4><ol>
+<li><strong>Initialize</strong> <code>w &lt;- 1/n</code> and compute <code>Sigma w</code>.</li>
+<li><strong>Cycle over coordinates</strong> <code>i = 1, ..., n</code>.</li>
+<li><strong>Update one weight at a time</strong> using the closed-form coordinate update from the surrogate objective.</li>
+<li><strong>Update</strong> <code>Sigma w</code> immediately after each coordinate update using a rank-one correction, so each coordinate step costs <code>O(n)</code> rather than recomputing the full matrix-vector product.</li>
+<li><strong>Check convergence</strong> after each full cycle: stop when <code>||w_new - w_old||_inf &lt; epsilon</code>.</li>
+<li><strong>Normalize</strong> <code>w &lt;- w / (1^T w)</code> so the final portfolio weights sum to one.</li>
+</ol>
+<p>Each full CCD cycle costs about <code>O(n^2)</code>. In the examples below, CCD is used for a minimal two-asset smoke test, a diagonal covariance correctness check, and the unconstrained side of the five-asset comparison.</p>
+<h3 id="SCASolver:-constrained-risk-parity-with-a-weight-cap"><code>SCASolver</code>: constrained risk parity with a weight cap<a class="anchor-link" href="#SCASolver:-constrained-risk-parity-with-a-weight-cap">¶</a></h3><p><code>SCASolver</code> adds a practical portfolio constraint:</p>
+<p><code>w_i &lt;= w_max</code> for every asset <code>i</code>.</p>
+<p>This matters in real portfolio construction because investors often want to avoid concentration risk. For example, even if a low-volatility asset would receive a large weight in the unconstrained risk parity solution, a portfolio rule may still require that no asset exceed 25% of the total allocation.</p>
+<p>The SCA solver minimizes the dispersion of risk contributions under the constraints</p>
+<p><code>sum_i w_i = 1</code>,  <code>0 &lt;= w_i &lt;= w_max</code>.</p>
+<p>Its objective is based on the squared distance between each asset's risk contribution and the average risk contribution:</p>
+<p><code>sum_i (RC_i - mean(RC))^2</code>.</p>
+<h4 id="SCA-algorithm">SCA algorithm<a class="anchor-link" href="#SCA-algorithm">¶</a></h4><ol>
+<li><strong>Validate feasibility</strong>: for <code>n</code> assets, the cap must satisfy <code>w_max &gt;= 1/n</code>; otherwise the weights cannot sum to one.</li>
+<li><strong>Initialize</strong> with the CCD solution, then clip and project it into the constrained set <code>sum(w)=1</code>, <code>0 &lt;= w_i &lt;= w_max</code>.</li>
+<li><strong>Compute risk contributions</strong> <code>RC_i = w_i (Sigma w)_i</code> and the residuals <code>RC_i - mean(RC)</code>.</li>
+<li><strong>Take a local gradient step</strong> to reduce risk-contribution dispersion.</li>
+<li><strong>Project back</strong> onto the capped simplex so the new weights still satisfy <code>sum(w)=1</code> and <code>0 &lt;= w_i &lt;= w_max</code>.</li>
+<li><strong>Use backtracking</strong> to shrink the step size if the objective does not improve.</li>
+<li><strong>Check convergence</strong>: stop when the maximum weight change is below the tolerance.</li>
+</ol>
+<p>Because the cap restricts the feasible set, the constrained solution may not achieve perfectly equal risk contributions. This is expected: once the cap becomes binding, the solver must balance the risk parity objective against the requirement that every weight stays below <code>w_max</code>.</p>
+<p>The constrained examples below show this trade-off explicitly through diagnostics, portfolio-weight plots, relative-risk-contribution plots, and a sweep over different values of <code>w_max</code>.</p>
 </div>
 </div>
 </div>
@@ -8312,6 +8631,20 @@ w_max=0.1 is infeasible for n=5: need w_max &gt;= 1/n.
 </div>
 </div>
 </div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=b58d6b8c">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span> 
+</pre></div>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c5a26b92">
 <div class="jp-Cell-inputWrapper" tabindex="0">
@@ -8335,6 +8668,21 @@ w_max=0.1 is infeasible for n=5: need w_max &gt;= 1/n.
 <li>Correctness and validation tests cover covariance input checks, CCD behavior, diagonal closed-form cases, two-asset sanity checks, valid long-only weights, and equal risk contributions.</li>
 <li>Robustness tests cover constrained solver feasibility, infeasible <code>w_max</code>, randomized covariance matrices, cross-dimensional stability, and boundary parameter cases.</li>
 </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=limitations-presentation">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Limitations">Limitations<a class="anchor-link" href="#Limitations">¶</a></h2><p>This demo shows the main workflow, but there are several important limitations to keep in mind.</p>
+<p>First, the quality of any risk parity portfolio depends heavily on the covariance matrix. If the covariance estimate is noisy, unstable, or based on a short time window, the optimized weights may also be unstable. In real applications, covariance estimation is often as important as the optimization method itself.</p>
+<p>Second, the current notebook focuses on long-only portfolios and a single upper-bound constraint. It does not model transaction costs, turnover limits, short selling, asset-specific lower bounds, or custom risk budgets. Those features would be natural extensions for a more advanced implementation.</p>
+<p>Third, risk parity balances risk contributions, but it does not directly use expected returns. This means it is useful for risk diversification, but it is not the same as mean-variance optimization or return maximization.</p>
+<p>Finally, the randomized robustness check in this notebook is a presentation-level validation, not a replacement for a full test suite. The formal automated tests are kept in <code>tests/test_riskparity.py</code>.</p>
 </div>
 </div>
 </div>

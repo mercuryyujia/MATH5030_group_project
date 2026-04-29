@@ -219,9 +219,8 @@ def test_ccd_fixed_covariance_regression_reference_weights():
 
 def test_ccd_matches_riskparityportfolio_readme_reference_example():
     """Validate against a reference example from the riskParityPortfolio README (R)."""
-    # Source example:
-    # set.seed(42); N <- 5; V <- matrix(rnorm(N^2), ncol = N); Sigma <- cov(V)
-    # The expected weights are the README output from riskParityPortfolio(Sigma).
+    # Sigma is reproduced from the riskParityPortfolio README setup using base R.
+    # Expected weights are the README-reported output of riskParityPortfolio(Sigma).
     Sigma = np.array(
         [
             [
