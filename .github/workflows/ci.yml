@@ -25,7 +25,7 @@ jobs:
 
       - run: pip install -e .[test]
 
-      - run: python -m pip install "pyfeng>=0.3.1"
+      - run: python -m pip install "pyfeng>=0.3.1" "statsmodels>=0.14"
 
       - run: python -c "import pyfeng"
 
