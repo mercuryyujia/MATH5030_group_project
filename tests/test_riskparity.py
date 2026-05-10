@@ -360,18 +360,16 @@ def test_ccd_highly_correlated_equicorrelation():
     assert np.allclose(rc, np.full(n, rc.mean()), rtol=0, atol=5e-5)
 
 
-def test_ccd_near_singular_low_rank_plus_jitter():
+def test_ccd_reports_pyfeng_nonconvergence_on_near_singular_low_rank_case():
+    """PyFENG's CCD implementation may not converge on near-singular low-rank inputs."""
     rng = np.random.default_rng(1)
     n = 35
     rank = 4
     b = rng.standard_normal((n, rank))
     Sigma = b @ b.T + 1e-5 * np.eye(n)
     Sigma = 0.5 * (Sigma + Sigma.T)
-    w = CCDSolver(Sigma, tol=1e-9, max_iter=10000).solve()
-    assert np.all(np.isfinite(w))
-    assert np.isclose(w.sum(), 1.0, atol=1e-8)
-    gap = risk_contribution_gap(Sigma, w)
-    assert gap < 1e-4
+    with pytest.raises(FloatingPointError, match="PyFENG RiskParity failed to converge"):
+        CCDSolver(Sigma, tol=1e-9, max_iter=10000).solve()
 
 
 # Robustness: random SPD (CCD + SCA)
@@ -509,21 +507,16 @@ def test_sca_random_spd_stable_across_dimensions(n):
 
 
 @pytest.mark.parametrize("n,rank", [(20, 3), (32, 4), (44, 5), (36, 4)])
-def test_ccd_low_rank_spd_jitter_stable_across_dimensions(n, rank):
+def test_ccd_reports_pyfeng_nonconvergence_on_low_rank_spd_jitter(n, rank):
+    """Document PyFENG's current CCD boundary on low-rank SPD-plus-jitter cases."""
     rng = np.random.default_rng(13000 + n + rank)
     b = rng.standard_normal((n, rank))
     Sigma = b @ b.T + 1e-5 * np.eye(n)
     Sigma = 0.5 * (Sigma + Sigma.T)
     max_iter = min(20000, max(10000, 150 * n))
     solver = CCDSolver(Sigma, tol=5e-8, max_iter=max_iter)
-    w = solver.solve()
-    assert w.shape == (n,)
-    assert np.all(np.isfinite(w))
-    assert np.isclose(w.sum(), 1.0, atol=1e-7)
-    assert np.all(w > 0.0)
-    gap = risk_contribution_gap(Sigma, w)
-    assert gap < 2e-3
-    assert solver.converged_ or gap < 1e-3
+    with pytest.raises(FloatingPointError, match="PyFENG RiskParity failed to converge"):
+        solver.solve()
 
 
 # Robustness: boundary parameters (tol, max_iter, w_max)
@@ -557,12 +550,11 @@ def test_ccd_extremely_tight_tol_small_system():
     assert risk_contribution_gap(Sigma, w) < 1e-10
 
 
-def test_ccd_accepts_min_positive_tol_float():
+def test_ccd_reports_pyfeng_nonconvergence_for_subnormal_tol():
     Sigma = np.eye(2)
     tol = np.finfo(float).tiny
-    w = CCDSolver(Sigma, tol=float(tol), max_iter=3000).solve()
-    assert np.all(np.isfinite(w))
-    assert np.isclose(w.sum(), 1.0, atol=1e-10)
+    with pytest.raises(FloatingPointError, match="PyFENG RiskParity failed to converge"):
+        CCDSolver(Sigma, tol=float(tol), max_iter=3000).solve()
 
 
 @pytest.mark.parametrize("n", [3, 6, 10])

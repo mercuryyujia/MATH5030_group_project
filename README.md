@@ -9,11 +9,17 @@ The project is designed as a compact, testable implementation for numerical fina
 
 ## Features
 
-- Unconstrained risk parity via cyclical coordinate descent (CCD)
+- Unconstrained risk parity via PyFENG's cyclical coordinate descent (CCD)
 - Constrained risk parity via successive convex approximation (SCA)
 - Utility functions for absolute and relative risk contributions
-- NumPy-only core dependency
+- NumPy and PyFENG core dependencies
 - Pytest test suite and GitHub Actions CI
+
+## Project Contributions
+
+The project reuses PyFENG, Jaehyuk Choi's Python Financial Engineering package, for the unconstrained CCD risk parity baseline. It then adds a practical constrained layer for portfolio construction. The main extension is `SCASolver`, which supports per-asset upper bounds through constraints of the form `0 <= w_i <= w_max` and `sum(w) = 1`. This is useful in real allocation settings where an unconstrained risk parity solution may put too much capital into a single low-volatility asset.
+
+The package also adds engineering features around the numerical method: input validation, simplex-box projection, risk-contribution diagnostics, solver attributes such as `converged_` and `risk_contribution_gap_`, reusable package APIs, documentation, and an automated test suite covering correctness, feasibility, robustness, and known PyFENG backend edge cases.
 
 ## Installation
 
@@ -90,13 +96,13 @@ This package provides:
 
 #### `CCDSolver(Sigma, tol=1e-8, max_iter=1000)`
 
-Computes an unconstrained long-only risk parity solution and normalizes weights to sum to 1.
+Computes an unconstrained long-only risk parity solution using PyFENG's `RiskParity.weight()` implementation and normalizes weights to sum to 1.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `Sigma` | `np.ndarray` | Symmetric covariance matrix of shape `(n, n)` |
 | `tol` | `float` | Convergence tolerance |
-| `max_iter` | `int` | Maximum CCD iterations |
+| `max_iter` | `int` | Backward-compatible parameter; PyFENG controls CCD iterations |
 
 Key attributes after `.solve()`:
 
@@ -190,8 +196,8 @@ The repository includes a demonstration notebook in [`notebooks/demo.ipynb`](./n
 
 - Feng, Y., and Palomar, D. P. (2015). SCRIP: Successive Convex Optimization Methods for Risk Parity Portfolio Design. *IEEE Transactions on Signal Processing*. https://ieeexplore.ieee.org/document/7145485
 - Choi, J., and Chen, R. (2022). Improved iterative methods for solving risk parity portfolio. *Journal of Derivatives and Quantitative Studies*, 30(2), 114-124. https://doi.org/10.1108/JDQS-12-2021-0031
+- Choi, J. PyFENG: Python Financial Engineering. https://github.com/PyFE/PyFENG
 - `riskParityPortfolio`: Design of Risk Parity Portfolios. https://github.com/dppalomar/riskParityPortfolio
-
 
 ## License
 

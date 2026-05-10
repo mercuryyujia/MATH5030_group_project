@@ -2,8 +2,8 @@
 
 This module provides two solvers for the risk parity problem:
 
-* :class:`CCDSolver` - a Cyclical Coordinate Descent baseline for the
-  unconstrained long-only problem.
+* :class:`CCDSolver` - a wrapper around PyFENG's Cyclical Coordinate
+  Descent implementation for the unconstrained long-only problem.
 * :class:`SCASolver` - a constrained solver supporting per-asset upper
   bounds ``w_i <= w_max``.
 
@@ -72,11 +72,13 @@ def risk_contribution_gap(Sigma: np.ndarray, w: np.ndarray) -> float:
 class CCDSolver:
     """Cyclical Coordinate Descent solver for unconstrained risk parity.
 
-    The algorithm solves the convex surrogate
+    This class preserves the package's ``CCDSolver(...).solve()`` API while
+    delegating the numerical solve to :class:`pyfeng.RiskParity`, which
+    implements the improved CCD method of Choi and Chen (2022).
 
-        min_{w > 0}  0.5 * w^T Sigma w  -  (1/n) * sum_i log(w_i)
-
-    and rescales the result so that ``sum(w) = 1``.
+    PyFENG's current API accepts ``tol`` but does not expose ``max_iter``;
+    the argument is retained here for backward compatibility with existing
+    project code.
     """
 
     def __init__(self, Sigma: np.ndarray, tol: float = 1e-8, max_iter: int = 1000):
@@ -89,38 +91,26 @@ class CCDSolver:
         self.risk_contribution_gap_: float | None = None
 
     def solve(self) -> np.ndarray:
-        Sigma = self.Sigma
-        n = Sigma.shape[0]
-        c = 1.0 / n
+        try:
+            import pyfeng as pf
+        except ImportError as exc:
+            raise ImportError(
+                "CCDSolver requires PyFENG. Install this package with its "
+                "project dependencies, or run `pip install pyfeng`."
+            ) from exc
 
-        w = np.full(n, 1.0 / n, dtype=np.float64)
-        Sw = (Sigma @ w).astype(np.float64, copy=False)
+        model = pf.RiskParity(cov=self.Sigma)
+        w = model.weight(tol=self.tol)
+        result = getattr(model, "_result", {})
+        self.n_iter_ = int(result.get("n_iter", 0)) or None
+        err = result.get("err")
+        self.converged_ = bool(w is not None and err is not None and err < self.tol)
+        if w is None:
+            raise FloatingPointError("PyFENG RiskParity failed to converge.")
 
-        for it in range(1, self.max_iter + 1):
-            w_old = w.copy()
-            for i in range(n):
-                sigma_ii = Sigma[i, i]
-                b_i = Sw[i] - sigma_ii * w[i]
-                disc = b_i * b_i + 4.0 * sigma_ii * c
-                if disc < 0.0:
-                    disc = 0.0
-                w_new = (-b_i + np.sqrt(disc)) / (2.0 * sigma_ii)
-                delta = w_new - w[i]
-                if delta != 0.0:
-                    Sw += delta * Sigma[:, i]
-                    w[i] = w_new
-
-            if np.linalg.norm(w - w_old, ord=np.inf) < self.tol:
-                self.n_iter_ = it
-                self.converged_ = True
-                break
-        else:
-            self.n_iter_ = self.max_iter
-            self.converged_ = False
-
-        w = self._normalise_weights(w)
+        w = self._normalise_weights(np.asarray(w, dtype=float))
         self.objective_ = self._objective(w)
-        self.risk_contribution_gap_ = risk_contribution_gap(Sigma, w)
+        self.risk_contribution_gap_ = risk_contribution_gap(self.Sigma, w)
         return w
 
     def _objective(self, w: np.ndarray) -> float:
