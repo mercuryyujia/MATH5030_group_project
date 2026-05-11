@@ -15,6 +15,30 @@ The project is designed as a compact, testable implementation for numerical fina
 - NumPy and PyFENG core dependencies
 - Pytest test suite and GitHub Actions CI
 
+## How We Prompted AI
+
+During the project, we used AI as a supporting tool in our discussion, coding,
+debugging, and documentation process. We first chose the project direction and
+worked through the main idea of risk parity portfolio optimization ourselves:
+constructing portfolio weights so that assets make balanced contributions to
+total portfolio risk. After that, we used AI to help us organize the project
+more clearly and check whether our explanations and code structure were easy
+to follow.
+
+Our prompts were usually specific questions that came up while developing the
+package. For example, we asked about input validation for covariance matrices,
+ways to compare risk contributions numerically, useful tests for portfolio
+weights and solver outputs, and clearer ways to explain the difference between
+unconstrained and constrained risk parity. We reviewed the suggestions against
+our own code, the course material, and the numerical behavior we observed
+before deciding what to keep.
+
+AI was also useful when revising the README and demo notebook, especially for
+making the project description more organized and identifying places where our
+writing was vague. The final choices about the project scope, implementation,
+tests, and interpretation were made by our group after checking the code and
+results ourselves.
+
 ## What We Added Beyond the Reference Papers
 
 The references provide the numerical foundations (CCD and SCA-style ideas), but this project contributes an end-to-end, reproducible implementation layer for constrained portfolio construction in practice.
