@@ -15,11 +15,16 @@ The project is designed as a compact, testable implementation for numerical fina
 - NumPy and PyFENG core dependencies
 - Pytest test suite and GitHub Actions CI
 
-## Project Contributions
+## What We Added Beyond the Reference Papers
 
-The project reuses PyFENG, Jaehyuk Choi's Python Financial Engineering package, for the unconstrained CCD risk parity baseline. It then adds a practical constrained layer for portfolio construction. The main extension is `SCASolver`, which supports per-asset upper bounds through constraints of the form `0 <= w_i <= w_max` and `sum(w) = 1`. This is useful in real allocation settings where an unconstrained risk parity solution may put too much capital into a single low-volatility asset.
+The references provide the numerical foundations (CCD and SCA-style ideas), but this project contributes an end-to-end, reproducible implementation layer for constrained portfolio construction in practice.
 
-The package also adds engineering features around the numerical method: input validation, simplex-box projection, risk-contribution diagnostics, solver attributes such as `converged_` and `risk_contribution_gap_`, reusable package APIs, documentation, and an automated test suite covering correctness, feasibility, robustness, and known PyFENG backend edge cases.
+- **Constrained extension on top of the baseline CCD workflow**: we keep PyFENG's CCD as the unconstrained baseline and add `SCASolver` for feasible long-only portfolios with per-asset caps (`sum(w)=1`, `0 <= w_i <= w_max`), which addresses concentration control not handled by unconstrained risk parity outputs.
+- **A complete feasibility mechanism**: we implement simplex-box projection (`_project_simplex_box`) and explicit infeasibility checks (`w_max < 1/n`) so constraints are enforced numerically, not only stated theoretically.
+- **Production-style solver diagnostics**: both solvers expose convergence and quality indicators (`n_iter_`, `converged_`, `objective_`, `risk_contribution_gap_`) for transparent evaluation and model debugging.
+- **Robust input and output validation**: covariance, tolerance, and iteration guards are built in; returned weights are checked for finiteness, budget feasibility, non-negativity, and cap compliance.
+- **Substantial verification suite**: 60 pytest cases cover analytical sanity checks (identity/diagonal/two-asset), fixed-matrix regression, constrained feasibility, randomized SPD robustness, and PyFENG edge-case behavior.
+- **Reproducible research-to-package pipeline**: we provide a clean Python API, notebook demo, CI across Python 3.10-3.12, and packaging/release workflow (`pyproject.toml` + PyPI publishing), turning paper ideas into a reusable artifact.
 
 ## Installation
 
