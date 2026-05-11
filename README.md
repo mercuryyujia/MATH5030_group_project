@@ -23,7 +23,7 @@ The references provide the numerical foundations (CCD and SCA-style ideas), but 
 - **A complete feasibility mechanism**: we implement simplex-box projection (`_project_simplex_box`) and explicit infeasibility checks (`w_max < 1/n`) so constraints are enforced numerically, not only stated theoretically.
 - **Production-style solver diagnostics**: both solvers expose convergence and quality indicators (`n_iter_`, `converged_`, `objective_`, `risk_contribution_gap_`) for transparent evaluation and model debugging.
 - **Robust input and output validation**: covariance, tolerance, and iteration guards are built in; returned weights are checked for finiteness, budget feasibility, non-negativity, and cap compliance.
-- **Substantial verification suite**: 60 pytest cases cover analytical sanity checks (identity/diagonal/two-asset), fixed-matrix regression, constrained feasibility, randomized SPD robustness, and PyFENG edge-case behavior.
+- **Substantial verification suite**: 102 pytest cases cover analytical sanity checks (identity/diagonal/two-asset), fixed-matrix regression, constrained feasibility, randomized SPD robustness, and PyFENG edge-case behavior.
 - **Reproducible research-to-package pipeline**: we provide a clean Python API, notebook demo, CI across Python 3.10-3.12, and packaging/release workflow (`pyproject.toml` + PyPI publishing), turning paper ideas into a reusable artifact.
 
 ## Installation
