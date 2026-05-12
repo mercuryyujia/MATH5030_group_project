@@ -50,6 +50,17 @@ The references provide the numerical foundations (CCD and SCA-style ideas), but 
 - **Substantial verification suite**: 102 pytest cases cover analytical sanity checks (identity/diagonal/two-asset), fixed-matrix regression, constrained feasibility, randomized SPD robustness, and PyFENG edge-case behavior.
 - **Reproducible research-to-package pipeline**: we provide a clean Python API, notebook demo, CI across Python 3.10-3.12, and packaging/release workflow (`pyproject.toml` + PyPI publishing), turning paper ideas into a reusable artifact.
 
+## How Much Existing Code We Reused
+
+We reused existing numerical tools where they were already reliable, and focused our own work on the constrained solver layer, validation, diagnostics, tests, notebook, and packaging rather than re-implementing mature solvers from scratch.
+
+- **High reuse for the unconstrained CCD baseline**: `CCDSolver` delegates the actual optimization to PyFENG's `RiskParity.weight()`, which implements the improved CCD method of Choi and Chen (2022). Our wrapper adds input validation, normalization to `sum(w)=1`, error handling, and diagnostics around PyFENG's returned weights.
+- **NumPy for core linear algebra**: covariance checks, risk contributions (`w * (Sigma @ w)`), objective values, gradients, clipping, projections, and randomized SPD test matrices are built with NumPy primitives instead of custom matrix or loop code.
+- **No copied implementation from the papers**: Feng and Palomar (2015) and Choi and Chen (2022) guide the mathematical design, but we do not vendor the authors' code or translate the R `riskParityPortfolio` package into Python.
+- **Local implementation for constrained SCA behavior**: `SCASolver` borrows the successive-approximation idea from the SCRIP reference, but the projected-gradient style iteration, backtracking step control, simplex-box projection, feasibility checks, and diagnostics are implemented in this repository.
+- **No direct SciPy optimizer in the solver path**: although a generic `scipy.optimize.minimize` approach would be possible, the current implementation avoids a black-box optimizer dependency so the constrained updates and feasibility enforcement remain transparent.
+- **External code used mainly as trusted infrastructure**: PyFENG handles the established CCD baseline, while pytest, GitHub Actions, packaging metadata, and notebook tooling support reproducibility and verification rather than replacing our project-specific solver logic.
+
 ## Installation
 
 Install from PyPI:
