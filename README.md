@@ -140,7 +140,7 @@ Key attributes after `.solve()`:
 - `objective_`
 - `risk_contribution_gap_`
 
-#### `SCASolver(Sigma, w_max=1.0, tol=1e-6, max_iter=200)`
+#### `SCASolver(sigma=None, cor=None, cov=None, w_max=1.0, ret=None, budget=None, longshort=1, tol=1e-6, max_iter=200)`
 
 Computes a constrained risk parity portfolio under:
 
@@ -149,10 +149,19 @@ Computes a constrained risk parity portfolio under:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `Sigma` | `np.ndarray` | Symmetric covariance matrix of shape `(n, n)` |
+| `sigma` | `np.ndarray` | Asset volatilities, used with `cor` when `cov` is not supplied |
+| `cor` | `np.ndarray` or `float` | Correlation matrix or scalar constant correlation |
+| `cov` | `np.ndarray` | Symmetric covariance matrix of shape `(n, n)`; preferred when supplied |
 | `w_max` | `float` | Per-asset upper bound in `(0, 1]` |
+| `ret` | `np.ndarray` | Expected returns, stored for API compatibility and not used in optimization |
+| `budget` | `np.ndarray` | Placeholder for PyFENG compatibility; only equal budgets are currently supported |
+| `longshort` | `np.ndarray` or `int` | Placeholder for PyFENG compatibility; only long-only portfolios are currently supported |
 | `tol` | `float` | Convergence tolerance |
 | `max_iter` | `int` | Maximum outer SCA iterations |
+
+Use `.weight(tol=None)` for the PyFENG-style API. The original project API
+`.solve()` remains available, and `SCASolver(Sigma, ...)` is still accepted as
+a shorthand for `SCASolver(cov=Sigma, ...)`.
 
 Key attributes after `.solve()`:
 
@@ -160,6 +169,7 @@ Key attributes after `.solve()`:
 - `converged_`
 - `objective_`
 - `risk_contribution_gap_`
+- `_result`
 
 ### Utility Functions
 

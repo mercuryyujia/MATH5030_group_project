@@ -693,3 +693,60 @@ def test_sca_constructor_propagates_tol_and_max_iter_validation():
         SCASolver(Sigma, w_max=1.0, tol=0.0)
     with pytest.raises(ValueError, match=r"max_iter must be at least 1\."):
         SCASolver(Sigma, w_max=1.0, max_iter=0)
+
+
+def test_sca_pyfeng_style_initialization_with_covariance():
+    solver = SCASolver(cov=COV_3, w_max=0.5)
+    assert solver.n_asset == 3
+    assert np.allclose(solver.cov, COV_3)
+    assert np.allclose(solver.cov_m, COV_3)
+    assert np.allclose(solver.sigma, np.sqrt(np.diag(COV_3)))
+
+
+def test_sca_pyfeng_style_accepts_longshort_none_as_long_only():
+    solver = SCASolver(cov=COV_3, w_max=0.5, longshort=None)
+    assert np.array_equal(solver.longshort, np.ones(3, dtype=np.int8))
+
+
+def test_sca_rejects_indefinite_covariance():
+    Sigma = np.array([[1.0, 2.0], [2.0, 1.0]])
+    with pytest.raises(ValueError, match=r"Sigma must be positive definite\."):
+        SCASolver(cov=Sigma)
+
+
+def test_sca_pyfeng_style_initialization_with_sigma_and_correlation():
+    sigma = np.array([0.2, 0.3, 0.4])
+    cor = np.array(
+        [
+            [1.0, 0.25, 0.10],
+            [0.25, 1.0, 0.20],
+            [0.10, 0.20, 1.0],
+        ]
+    )
+    solver = SCASolver(sigma=sigma, cor=cor, w_max=0.6)
+    expected_cov = np.outer(sigma, sigma) * cor
+    assert np.allclose(solver.cov, expected_cov)
+
+
+def test_sca_weight_method_returns_feasible_weights_and_result_dict():
+    solver = SCASolver(cov=COV_3, w_max=0.5, tol=1e-8, max_iter=800)
+    w = solver.weight()
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w >= -1e-10)
+    assert np.all(w <= 0.5 + 1e-8)
+    assert solver.converged_ is True
+    assert set(["n_iter", "err", "objective", "gap"]).issubset(solver._result)
+    assert solver._result["err"] < solver.tol
+
+
+def test_sca_weight_method_allows_tolerance_override():
+    solver = SCASolver(cov=COV_3, w_max=0.5, tol=1e-12, max_iter=800)
+    w = solver.weight(tol=1e-5)
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert solver._result["err"] < 1e-5
+
+
+def test_sca_legacy_positional_weight_cap_remains_supported():
+    w = SCASolver(COV_3, 0.5, tol=1e-8, max_iter=800).solve()
+    assert np.isclose(w.sum(), 1.0, atol=1e-7)
+    assert np.all(w <= 0.5 + 1e-8)
