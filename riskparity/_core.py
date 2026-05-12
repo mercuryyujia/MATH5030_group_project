@@ -2,8 +2,8 @@
 
 This module provides two solvers for the risk parity problem:
 
-* :class:`CCDSolver` - a wrapper around PyFENG's Cyclical Coordinate
-  Descent implementation for the unconstrained long-only problem.
+* :class:`CCDSolver` - a Cyclical Coordinate Descent implementation for the
+  unconstrained long-only problem.
 * :class:`SCASolver` - a constrained solver supporting per-asset upper
   bounds ``w_i <= w_max``.
 
@@ -77,32 +77,45 @@ def risk_contribution_gap(Sigma: np.ndarray, w: np.ndarray) -> float:
     return float(np.max(np.abs(rc - rc.mean())))
 
 
-def _make_pyfeng_risk_parity_model(pf, Sigma: np.ndarray):
-    """Instantiate PyFENG RiskParity across versions with/without ``cov``."""
-    try:
-        return pf.RiskParity(cov=Sigma)
-    except TypeError as exc:
-        if "cov" not in str(exc):
-            raise
-
+def _risk_parity_ccd_weight(
+    Sigma: np.ndarray, tol: float
+) -> tuple[np.ndarray | None, dict]:
+    """Compute equal-budget long-only risk parity weights by improved CCD."""
     sigma = np.sqrt(np.diag(Sigma))
     cor = Sigma / np.outer(sigma, sigma)
-    try:
-        return pf.RiskParity(sigma=sigma, cor=cor)
-    except TypeError:
-        return pf.RiskParity(sigma, cor)
+    n_asset = Sigma.shape[0]
+    budget = np.full(n_asset, 1.0 / n_asset)
+    ww = np.full(n_asset, 1.0 / np.sqrt(np.sum(cor)))
+    err = np.inf
+
+    for k in range(1, 1024):
+        for i, row in enumerate(cor):
+            a = (np.dot(row, ww) - ww[i]) / 2.0
+            ww[i] = np.sqrt(a * a + budget[i]) - a
+
+        cor_ww = cor @ ww
+        vv = np.sqrt(np.dot(ww, cor_ww))
+        if not np.isfinite(vv) or vv <= 0.0:
+            return None, {"err": float("inf"), "n_iter": k}
+        cor_ww /= vv
+        ww /= vv
+
+        err = float(np.max(np.abs(ww * cor_ww - budget)))
+        if err < tol:
+            w = ww / sigma
+            w /= np.sum(w)
+            return w, {"err": err, "n_iter": k}
+
+    return None, {"err": err, "n_iter": k}
 
 
 class CCDSolver:
     """Cyclical Coordinate Descent solver for unconstrained risk parity.
 
-    This class preserves the package's ``CCDSolver(...).solve()`` API while
-    delegating the numerical solve to :class:`pyfeng.RiskParity`, which
-    implements the improved CCD method of Choi and Chen (2022).
-
-    PyFENG's current API accepts ``tol`` but does not expose ``max_iter``;
-    the argument is retained here for backward compatibility with existing
-    project code.
+    This class preserves the package's ``CCDSolver(...).solve()`` API and
+    implements the improved CCD method of Choi and Chen (2022). The
+    ``max_iter`` argument is retained for backward compatibility with
+    existing project code; the CCD loop follows PyFENG's fixed iteration cap.
     """
 
     def __init__(self, Sigma: np.ndarray, tol: float = 1e-8, max_iter: int = 1000):
@@ -115,17 +128,7 @@ class CCDSolver:
         self.risk_contribution_gap_: float | None = None
 
     def solve(self) -> np.ndarray:
-        try:
-            import pyfeng as pf
-        except ImportError as exc:
-            raise ImportError(
-                "CCDSolver requires PyFENG. Install this package with its "
-                "project dependencies, or run `pip install pyfeng`."
-            ) from exc
-
-        model = _make_pyfeng_risk_parity_model(pf, self.Sigma)
-        w = model.weight(tol=self.tol)
-        result = getattr(model, "_result", {})
+        w, result = _risk_parity_ccd_weight(self.Sigma, self.tol)
         self.n_iter_ = int(result.get("n_iter", 0)) or None
         err = result.get("err")
         self.converged_ = bool(w is not None and err is not None and err < self.tol)

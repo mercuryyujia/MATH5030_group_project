@@ -11,7 +11,6 @@ import pytest
 from riskparity._core import (
     CCDSolver,
     SCASolver,
-    _make_pyfeng_risk_parity_model,
     _validate_covariance,
     _validate_max_iter,
     _validate_tol,
@@ -28,24 +27,6 @@ def test_public_api_imports():
     assert hasattr(riskparity, "CCDSolver")
     assert hasattr(riskparity, "SCASolver")
     assert hasattr(riskparity, "risk_contributions")
-
-
-def test_pyfeng_risk_parity_factory_falls_back_without_cov_keyword():
-    """Older PyFENG versions accept sigma/cor but not cov."""
-
-    class OldRiskParity:
-        def __init__(self, sigma=None, cor=None):
-            self.sigma = np.asarray(sigma, dtype=float)
-            self.cor = np.asarray(cor, dtype=float)
-
-    class FakePyfeng:
-        RiskParity = OldRiskParity
-
-    model = _make_pyfeng_risk_parity_model(FakePyfeng, COV_2)
-    sigma = np.sqrt(np.diag(COV_2))
-    cor = COV_2 / np.outer(sigma, sigma)
-    assert np.allclose(model.sigma, sigma)
-    assert np.allclose(model.cor, cor)
 
 
 def _random_spd_matrix(rng: np.random.Generator, n: int) -> np.ndarray:
