@@ -77,6 +77,22 @@ def risk_contribution_gap(Sigma: np.ndarray, w: np.ndarray) -> float:
     return float(np.max(np.abs(rc - rc.mean())))
 
 
+def _make_pyfeng_risk_parity_model(pf, Sigma: np.ndarray):
+    """Instantiate PyFENG RiskParity across versions with/without ``cov``."""
+    try:
+        return pf.RiskParity(cov=Sigma)
+    except TypeError as exc:
+        if "cov" not in str(exc):
+            raise
+
+    sigma = np.sqrt(np.diag(Sigma))
+    cor = Sigma / np.outer(sigma, sigma)
+    try:
+        return pf.RiskParity(sigma=sigma, cor=cor)
+    except TypeError:
+        return pf.RiskParity(sigma, cor)
+
+
 class CCDSolver:
     """Cyclical Coordinate Descent solver for unconstrained risk parity.
 
@@ -107,7 +123,7 @@ class CCDSolver:
                 "project dependencies, or run `pip install pyfeng`."
             ) from exc
 
-        model = pf.RiskParity(cov=self.Sigma)
+        model = _make_pyfeng_risk_parity_model(pf, self.Sigma)
         w = model.weight(tol=self.tol)
         result = getattr(model, "_result", {})
         self.n_iter_ = int(result.get("n_iter", 0)) or None
